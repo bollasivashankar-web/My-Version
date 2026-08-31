@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { serverFunctionAuth } from "@/integrations/supabase/server-function-auth";
 import { z } from "zod";
 import type { RoleLevel } from "@/types/auth";
 
@@ -113,7 +114,7 @@ const UpdateProfileSchema = z.object({
 });
 
 export const updateMyProfile = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([serverFunctionAuth, requireSupabaseAuth])
   .validator((input: unknown) => UpdateProfileSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;

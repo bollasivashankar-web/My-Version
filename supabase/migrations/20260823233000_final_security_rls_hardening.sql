@@ -746,11 +746,11 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
   SELECT ce.candidate_id,
-         (1 - (ce.embedding::halfvec(3072) <=> _query_embedding::halfvec(3072)))::real
+         (1 - (ce.embedding::public.halfvec(3072) OPERATOR(public.<=>) _query_embedding::public.halfvec(3072)))::real
   FROM public.candidate_embeddings ce
   JOIN public.candidates c ON c.id = ce.candidate_id
   WHERE c.tenant_id = private.current_tenant_id()
-  ORDER BY ce.embedding::halfvec(3072) <=> _query_embedding::halfvec(3072)
+  ORDER BY ce.embedding::public.halfvec(3072) OPERATOR(public.<=>) _query_embedding::public.halfvec(3072)
   LIMIT LEAST(GREATEST(_limit, 1), 50);
 $$;
 
@@ -763,7 +763,7 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
   SELECT ce.candidate_id,
-         (1 - (ce.embedding::halfvec(3072) <=> re.embedding::halfvec(3072)))::real
+         (1 - (ce.embedding::public.halfvec(3072) OPERATOR(public.<=>) re.embedding::public.halfvec(3072)))::real
   FROM public.requirement_embeddings re
   JOIN public.requirements r ON r.id = re.requirement_id
   JOIN public.candidate_embeddings ce ON true
@@ -771,7 +771,7 @@ AS $$
   WHERE re.requirement_id = _requirement_id
     AND r.tenant_id = private.current_tenant_id()
     AND c.tenant_id = private.current_tenant_id()
-  ORDER BY ce.embedding::halfvec(3072) <=> re.embedding::halfvec(3072)
+  ORDER BY ce.embedding::public.halfvec(3072) OPERATOR(public.<=>) re.embedding::public.halfvec(3072)
   LIMIT LEAST(GREATEST(_limit, 1), 50);
 $$;
 
@@ -784,7 +784,7 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
   SELECT re.requirement_id,
-         (1 - (re.embedding::halfvec(3072) <=> ce.embedding::halfvec(3072)))::real
+         (1 - (re.embedding::public.halfvec(3072) OPERATOR(public.<=>) ce.embedding::public.halfvec(3072)))::real
   FROM public.candidate_embeddings ce
   JOIN public.candidates c ON c.id = ce.candidate_id
   JOIN public.requirement_embeddings re ON true
@@ -792,7 +792,7 @@ AS $$
   WHERE ce.candidate_id = _candidate_id
     AND c.tenant_id = private.current_tenant_id()
     AND r.tenant_id = private.current_tenant_id()
-  ORDER BY re.embedding::halfvec(3072) <=> ce.embedding::halfvec(3072)
+  ORDER BY re.embedding::public.halfvec(3072) OPERATOR(public.<=>) ce.embedding::public.halfvec(3072)
   LIMIT LEAST(GREATEST(_limit, 1), 50);
 $$;
 
