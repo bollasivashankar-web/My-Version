@@ -12,11 +12,6 @@ const checks = [
   ["src/lib/dashboard.functions.ts", "getRecentActivity", /\.limit\(15\)/],
   ["src/lib/candidates.functions.ts", "getCandidate", /\.limit\(50\)[\s\S]*\.limit\(100\)/],
   ["src/lib/candidates.functions.ts", "semanticSearchCandidates", /\.limit\(data\.limit\)/],
-  ["src/lib/dashboard.functions.ts", "getSubmissionsTrend", /\.limit\(MAX_DASHBOARD_DETAIL_ROWS\)/],
-  ["src/lib/dashboard.functions.ts", "getPipelineFunnel", /head:\s*true/],
-  ["src/lib/dashboard.functions.ts", "getRequirementsBreakdown", /head:\s*true/],
-  ["src/lib/dashboard.functions.ts", "getTopRecruiters", /\.limit\(MAX_DASHBOARD_DETAIL_ROWS\)/],
-  ["src/lib/dashboard.functions.ts", "getBenchStats", /\.limit\(MAX_DASHBOARD_DETAIL_ROWS\)/],
 ];
 
 const cache = new Map();
@@ -38,4 +33,23 @@ assert.doesNotMatch(
   "A notifications endpoint exists but is not included in the bounded endpoint audit",
 );
 
-console.log(`Verified server-side bounds for ${checks.length} collection endpoints.`);
+const dashboardSource = cache.get("src/lib/dashboard.functions.ts");
+assert.match(
+  dashboardSource,
+  /export const getDashboardOverview[\s\S]*\.rpc\("dashboard_overview"\)/,
+  "dashboard collections must be returned by the bounded dashboard_overview aggregate RPC",
+);
+assert.match(
+  dashboardSource,
+  /recruiters:[\s\S]*\.max\(5\)/,
+  "dashboard recruiter output must have a schema-enforced bound",
+);
+assert.match(
+  dashboardSource,
+  /top_tech:[^\n]*\.max\(8\)/,
+  "dashboard technology output must have a schema-enforced bound",
+);
+
+console.log(
+  `Verified server-side bounds for ${checks.length} collection endpoints and the dashboard aggregate.`,
+);

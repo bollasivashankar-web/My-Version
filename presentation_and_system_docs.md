@@ -10,12 +10,13 @@
 
 ---
 
-### 2. Current Frontend Technical Stack & Architecture
+### 2. Current Application Stack & Architecture
 
-- **Core Framework**: React 19 + TypeScript + Vite
-- **Routing & Data Loading**: TanStack Router (File-based routing with strict type safety) + TanStack Query
+- **Core Framework**: React 19 + TypeScript + TanStack Start SSR + Vite
+- **Routing & Data Loading**: TanStack Router (file-based routing) + TanStack Query + authenticated server functions
 - **Styling & UI Components**: Tailwind CSS v4 + Shadcn UI + Lucide Icons + Radix UI Primitives
-- **State Management**: Reactive state stores (`pipeline-store.ts`, `master-mock-dataset.ts`)
+- **Persistence & Isolation**: Supabase Auth, Postgres, Storage, tenant-scoped RLS, and versioned migrations
+- **AI & Document Boundaries**: Server-only AI gateway, scheduled embedding task, and an isolated malware-scanned document worker
 - **Notifications & Feedback**: Sonner Toaster (2-second global duration standard)
 
 ---

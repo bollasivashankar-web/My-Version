@@ -22,7 +22,7 @@ import { StaffinixLogo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { useTenancy } from "@/hooks/use-tenancy";
-import { RoleLevel } from "@/lib/auth-service";
+import { useRoleLevel } from "@/hooks/use-role-level";
 
 type NavItem = {
   to: string;
@@ -34,14 +34,14 @@ export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data } = useProfile();
   const { data: tenancy } = useTenancy();
-
-  const level: RoleLevel = (data as any)?.level ?? "L4";
+  const { level } = useRoleLevel();
 
   // L1 — Platform Owner (Staffinix SaaS Admin)
   const l1Items: { section: string; items: NavItem[] }[] = [
     {
       section: "SaaS Administration",
       items: [
+        { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
         { to: "/platform", label: "Platform Console", icon: Crown },
         { to: "/tenants/new", label: "New Tenant Registration", icon: Building2 },
         { to: "/audit", label: "Audit Logs", icon: ScrollText },
@@ -92,8 +92,23 @@ export function AppSidebar() {
     },
   ];
 
+  const unprovisionedItems: { section: string; items: NavItem[] }[] = [
+    {
+      section: "Account",
+      items: [{ to: "/access-request", label: "Request Access", icon: Crown }],
+    },
+  ];
+
   const currentNavGroups =
-    level === "L1" ? l1Items : level === "L2" ? l2Items : level === "L3" ? l3Items : l4Items;
+    level === "L1"
+      ? l1Items
+      : level === "L2"
+        ? l2Items
+        : level === "L3"
+          ? l3Items
+          : level === "L4"
+            ? l4Items
+            : unprovisionedItems;
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex h-screen sticky top-0 overflow-hidden">
@@ -112,7 +127,7 @@ export function AppSidebar() {
         ))}
       </nav>
 
-      <div className="border-t border-sidebar-border p-3">
+      <div className="border-t border-sidebar-border p-3 space-y-2">
         <Link
           to="/settings/profile"
           className={cn(
@@ -124,27 +139,35 @@ export function AppSidebar() {
           Profile
         </Link>
         {tenancy?.tenant && (
-          <div className="mt-2 truncate rounded-md border border-sidebar-border px-2.5 py-1.5 text-xs text-sidebar-foreground/70">
+          <div className="truncate rounded-md border border-sidebar-border px-2.5 py-1.5 text-xs text-sidebar-foreground/70">
             {tenancy.tenant.name}
             <span className="ml-1 capitalize text-sidebar-foreground/40">
               · {tenancy.tenant.plan}
             </span>
           </div>
         )}
-        <div className="mt-2 flex items-center justify-between rounded-md bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary">
-          <div className="flex items-center gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            <span>{level} View</span>
+
+        <div className="rounded-lg border border-sidebar-border/80 bg-sidebar-accent/30 p-2">
+          <div className="flex items-center justify-between text-[11px] font-semibold text-sidebar-foreground">
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+              <span>Assigned Access</span>
+            </div>
+            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+              {level ?? "Pending"}
+            </span>
           </div>
-          <span className="text-[10px] text-muted-foreground font-mono">
+          <div className="mt-1.5 text-center text-[9px] text-sidebar-foreground/60 font-mono">
             {level === "L1"
               ? "SaaS Owner"
               : level === "L2"
-                ? "Exec VP"
+                ? "Exec VP / Admin"
                 : level === "L3"
                   ? "Dev Lead"
-                  : "Recruiter"}
-          </span>
+                  : level === "L4"
+                    ? "Recruiter Desk"
+                    : "Awaiting role assignment"}
+          </div>
         </div>
       </div>
     </aside>

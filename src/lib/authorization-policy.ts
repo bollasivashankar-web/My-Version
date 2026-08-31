@@ -3,6 +3,7 @@ import { ApplicationError } from "./application-error.ts";
 export const APP_ROLES = [
   "super_admin",
   "admin",
+  "developer_admin",
   "recruiter",
   "account_manager",
   "delivery_manager",
@@ -42,6 +43,19 @@ export function assertSuperAdmin(snapshot: AuthorizationSnapshot): void {
   assertActive(snapshot);
   if (!snapshot.roles.includes("super_admin")) {
     throw new ForbiddenError("Super administrator privileges required.");
+  }
+}
+
+export function assertDeveloperAdmin(snapshot: AuthorizationSnapshot): void {
+  assertActive(snapshot);
+  if (
+    snapshot.platformRole !== "platform_owner" &&
+    snapshot.platformRole !== "platform_admin" &&
+    !snapshot.roles.some(
+      (role) => role === "developer_admin" || role === "super_admin" || role === "admin",
+    )
+  ) {
+    throw new ForbiddenError("Developer administrator privileges required.");
   }
 }
 

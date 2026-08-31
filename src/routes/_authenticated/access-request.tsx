@@ -32,7 +32,7 @@ import {
   requestPlatformAccess,
 } from "@/lib/access-requests.functions";
 import { useProfile } from "@/hooks/use-profile";
-import { RoleLevel } from "@/lib/auth-service";
+import { useSession } from "@/hooks/use-session";
 
 export const Route = createFileRoute("/_authenticated/access-request")({
   head: () => ({
@@ -43,10 +43,7 @@ export const Route = createFileRoute("/_authenticated/access-request")({
 
 function AccessRequestPage() {
   const { data: me } = useProfile();
-  const level: RoleLevel = (me as any)?.level ?? "L4";
-
-  // L3 Dev Lead, L2, L1 act as Approvers; L4 submits request
-  const isApprover = level === "L3" || level === "L2" || level === "L1";
+  const isApprover = me?.platformRole === "platform_owner" || me?.platformRole === "platform_admin";
 
   return (
     <>
@@ -71,6 +68,7 @@ function ApproverTable() {
   const qc = useQueryClient();
   const listFn = useServerFn(listAccessRequests);
   const reviewFn = useServerFn(reviewAccessRequest);
+  const { isAuthenticated } = useSession();
 
   const {
     data: requestsData = [],
@@ -79,6 +77,8 @@ function ApproverTable() {
   } = useQuery({
     queryKey: ["access-requests-list"],
     queryFn: () => listFn(),
+    enabled: isAuthenticated,
+    retry: 2,
   });
 
   const [overrideMap, setOverrideMap] = useState<Record<string, string>>({});
@@ -90,9 +90,9 @@ function ApproverTable() {
 
   function handleAction(id: string, approve: boolean, recruiterName: string) {
     const newStatus = approve ? "approved" : "denied";
-    setOverrideMap((prev) => ({ ...prev, [id]: newStatus }));
     reviewFn({ data: { id, approve } })
       .then(() => {
+        setOverrideMap((prev) => ({ ...prev, [id]: newStatus }));
         toast.success(`${approve ? "Approved" : "Rejected"} access for ${recruiterName}`);
         qc.invalidateQueries({ queryKey: ["access-requests-list"] });
       })
@@ -208,14 +208,14 @@ function ApproverTable() {
                       {isPending ? (
                         <div className="flex items-center justify-end gap-2">
                           <Button
-                            size="xs"
+                            size="sm"
                             className="h-7 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
                             onClick={() => handleAction(r.id, true, name)}
                           >
                             <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Approve
                           </Button>
                           <Button
-                            size="xs"
+                            size="sm"
                             variant="outline"
                             className="h-7 px-2.5 text-xs border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
                             onClick={() => handleAction(r.id, false, name)}
@@ -245,8 +245,8 @@ function RecruiterRequestForm() {
   const [submitted, setSubmitted] = useState(false);
   const [draftGenerated, setDraftGenerated] = useState(false);
 
-  const senderEmail = profile?.email || "Signed-in account";
-  const senderName = profile?.full_name || "Current user";
+  const senderEmail = profile?.email || profile?.profile?.email || "Signed-in account";
+  const senderName = profile?.profile?.full_name || "Current user";
 
   const requestFn = useServerFn(requestPlatformAccess);
 
@@ -344,6 +344,7 @@ function RecruiterRequestForm() {
                 </span>
               </div>
               <button
+                type="button"
                 onClick={() => setDraftGenerated(false)}
                 className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
               >

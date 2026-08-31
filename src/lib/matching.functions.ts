@@ -5,6 +5,10 @@ import {
   requestStructuredAiOutput,
   UNTRUSTED_DOCUMENT_SYSTEM_RULES,
 } from "@/lib/ai-gateway.server";
+import { writeAudit } from "@/lib/audit.server";
+
+const MATCH_RATIONALE_MODEL = "google/gemini-3-flash-preview";
+const MATCH_RATIONALE_PROMPT_VERSION = "match-rationale-human-review-v1";
 
 // ============ Scoring helpers ============
 
@@ -112,6 +116,41 @@ function weightedOverall(components: Array<{ score: number; weight: number }>) {
   );
 }
 
+function evaluateHardConstraints(
+  req: any,
+  cand: any,
+  requirementSkills: SkillRow[],
+  candidateSkills: SkillRow[],
+) {
+  const reasons: string[] = [];
+  const candidateSkillSet = new Set(candidateSkills.map((skill) => norm(skill.skill)));
+  const missingMandatory = requirementSkills
+    .filter((skill) => skill.is_mandatory && !candidateSkillSet.has(norm(skill.skill)))
+    .map((skill) => skill.skill);
+
+  if (missingMandatory.length > 0) {
+    reasons.push(`Missing mandatory skills: ${missingMandatory.join(", ")}`);
+  }
+  if (req.min_experience_years != null) {
+    if (cand.experience_years == null) reasons.push("Required experience is not recorded");
+    else if (cand.experience_years < req.min_experience_years) {
+      reasons.push(`Below the recorded ${req.min_experience_years}-year minimum experience`);
+    }
+  }
+  if (req.visa_types?.length && visaMatch(req.visa_types, cand.visa_status) === 0) {
+    reasons.push("Recorded work authorization does not match the requirement");
+  }
+  if (
+    req.work_mode !== "remote" &&
+    req.location &&
+    locationMatch(req.location, req.work_mode, cand.location) === 0
+  ) {
+    reasons.push("Recorded location does not match the on-site/hybrid requirement");
+  }
+
+  return { passed: reasons.length === 0, reasons, missing_mandatory_skills: missingMandatory };
+}
+
 export function computeSingleMatchScore(req: any, cand: any): number {
   if (!req || !cand) return 0;
 
@@ -183,7 +222,7 @@ export const matchCandidatesForRequirement = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId, claims } = context;
 
     const [
       { data: req, error: requirementError },
@@ -292,9 +331,11 @@ export const matchCandidatesForRequirement = createServerFn({ method: "POST" })
         { ...req, skills: reqSkillsRows },
         { ...c, skills: sk, semantic_similarity: sem },
       );
+      const hardConstraints = evaluateHardConstraints(req, c, reqSkillsRows, sk);
 
       return {
         candidate: c,
+        hard_constraints: hardConstraints,
         scores: {
           overall: overallScore,
           skill: Math.round(sm.score * 100),
@@ -309,7 +350,11 @@ export const matchCandidatesForRequirement = createServerFn({ method: "POST" })
       };
     });
 
-    rows.sort((a, b) => b.scores.overall - a.scores.overall);
+    rows.sort(
+      (a, b) =>
+        Number(b.hard_constraints.passed) - Number(a.hard_constraints.passed) ||
+        b.scores.overall - a.scores.overall,
+    );
 
     // Always ensure the specifically-requested candidate is included,
     // even if they rank beyond the slice limit.
@@ -347,6 +392,11 @@ export type MatchRow = {
   };
   matched_skills: string[];
   missing_skills: string[];
+  hard_constraints: {
+    passed: boolean;
+    reasons: string[];
+    missing_mandatory_skills: string[];
+  };
 };
 
 // ============ Match requirements for a candidate ============
@@ -445,8 +495,10 @@ export const matchRequirementsForCandidate = createServerFn({ method: "POST" })
       if (r.location || r.work_mode === "remote") components.push({ score: lm, weight: 0.1 });
       if (r.primary_technology || r.title) components.push({ score: kw, weight: 0.05 });
       const overall = weightedOverall(components);
+      const hardConstraints = evaluateHardConstraints(r, cand, reqSkills, cSkills);
       return {
         requirement: r,
+        hard_constraints: hardConstraints,
         scores: {
           overall: Math.round(overall * 100),
           skill: Math.round(sm.score * 100),
@@ -459,7 +511,11 @@ export const matchRequirementsForCandidate = createServerFn({ method: "POST" })
         missing_skills: sm.missing,
       };
     });
-    rows.sort((a, b) => b.scores.overall - a.scores.overall);
+    rows.sort(
+      (a, b) =>
+        Number(b.hard_constraints.passed) - Number(a.hard_constraints.passed) ||
+        b.scores.overall - a.scores.overall,
+    );
     return { rows: rows.slice(0, data.limit), candidate: cand };
   });
 
@@ -525,12 +581,15 @@ CANDIDATE:
 - Summary: ${cand.summary ?? "—"}
 END_UNTRUSTED_CANDIDATE
 
+This is decision support for a recruiter. Do not make an automatic hiring or rejection decision.
 Return ONLY JSON:
 { "strengths": string[], "gaps": string[], "recommendation": string, "verdict": "strong" | "possible" | "weak" }`;
 
-      return await requestStructuredAiOutput(
+      const rationale = await requestStructuredAiOutput(
         {
-          model: "google/gemini-3-flash-preview",
+          model: MATCH_RATIONALE_MODEL,
+          temperature: 0.2,
+          max_completion_tokens: 900,
           messages: [
             {
               role: "system",
@@ -549,6 +608,21 @@ Return ONLY JSON:
           })
           .strict(),
       );
+
+      await writeAudit({
+        actorId: userId,
+        actorEmail: (claims.email as string | undefined) ?? null,
+        action: "matching.rationale_generated",
+        entityType: "requirement_candidate_match",
+        metadata: {
+          requirement_id: data.requirement_id,
+          candidate_id: data.candidate_id,
+          model: MATCH_RATIONALE_MODEL,
+          prompt_version: MATCH_RATIONALE_PROMPT_VERSION,
+        },
+      });
+
+      return rationale;
     } catch (error) {
       throw new Error(
         `Unable to generate match rationale: ${error instanceof Error ? error.message : "unknown error"}`,

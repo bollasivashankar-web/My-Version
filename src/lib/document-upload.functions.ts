@@ -8,14 +8,16 @@ const DOCUMENT_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ] as const;
 
+function isSafeDocumentName(value: string): boolean {
+  return ![...value].some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return character === "/" || character === "\\" || codePoint <= 0x1f;
+  });
+}
+
 const DocumentUploadSchema = z
   .object({
-    file_name: z
-      .string()
-      .trim()
-      .min(1)
-      .max(200)
-      .refine((value) => !/[\\/\u0000-\u001f]/.test(value), "Invalid file name"),
+    file_name: z.string().trim().min(1).max(200).refine(isSafeDocumentName, "Invalid file name"),
     mime_type: z.enum(DOCUMENT_MIME_TYPES),
     size_bytes: z
       .number()

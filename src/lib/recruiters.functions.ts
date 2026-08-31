@@ -35,6 +35,34 @@ export const listRecruiters = createServerFn({ method: "GET" })
     }));
   });
 
+export interface RecruiterRequirementItem {
+  id: string;
+  title: string;
+  created_at: string;
+  status: string;
+  priority: string;
+}
+
+export interface RecruiterSubmissionItem {
+  id: string;
+  created_at: string;
+  stage: string;
+}
+
+export interface RecruiterInterviewItem {
+  id: string;
+  round: number;
+  scheduled_at: string | null;
+  outcome: string | null;
+}
+
+export interface RecruiterPlacementItem {
+  id: string;
+  status: string;
+  start_date: string;
+  end_date: string | null;
+}
+
 export const getRecruiter = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
@@ -55,9 +83,9 @@ export const getRecruiter = createServerFn({ method: "POST" })
 
     return {
       profile: { ...profile, roles: (roles ?? []).map((role) => role.role) },
-      requirements: [],
-      submissions: [],
-      interviews: [],
-      placements: [],
+      requirements: [] as RecruiterRequirementItem[],
+      submissions: [] as RecruiterSubmissionItem[],
+      interviews: [] as RecruiterInterviewItem[],
+      placements: [] as RecruiterPlacementItem[],
     };
   });

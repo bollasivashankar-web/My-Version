@@ -8,111 +8,102 @@ const NamedCountSchema = z
   .object({ name: z.string().trim().min(1).max(160), value: CountSchema })
   .strict();
 
-const DashboardOverviewSchema = z
-  .object({
-    kpis: z
-      .object({
-        teamMembers: CountSchema,
-        openRequirements: CountSchema,
-        submissionsThisWeek: CountSchema,
-        submissionsPrevWeek: CountSchema,
-        interviewsScheduled: CountSchema,
-        activeConsultants: CountSchema,
-        benchReady: CountSchema,
-        activePlacements: CountSchema,
-        hiresThisMonth: CountSchema,
-      })
-      .strict(),
-    trend: z
-      .array(
-        z
-          .object({
-            date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-            label: z.string().trim().min(1).max(16),
-            submissions: CountSchema,
-            hired: CountSchema,
-          })
-          .strict(),
-      )
-      .length(14),
-    funnel: z
-      .array(
-        z
-          .object({
-            stage: z.enum([
-              "draft",
-              "submitted",
-              "vendor_review",
-              "client_review",
-              "interview",
-              "offer",
-              "hired",
-              "rejected",
-              "withdrawn",
-            ]),
-            count: CountSchema,
-          })
-          .strict(),
-      )
-      .length(9),
-    recruiters: z
-      .array(
-        z
-          .object({
-            id: z.string().uuid(),
-            name: z.string().trim().min(1).max(255),
-            email: z.string().email().max(255),
-            avatar_url: z.string().max(2_000).nullable(),
-            submissions: CountSchema,
-            hires: CountSchema,
-          })
-          .strict(),
-      )
-      .max(5),
-    bench: z
-      .object({
-        total: CountSchema,
-        immediate: CountSchema,
-        by_availability: z
-          .array(
-            z
-              .object({
-                name: z.enum(["immediate", "two_weeks", "one_month", "negotiable", "unavailable"]),
-                value: CountSchema,
-              })
-              .strict(),
-          )
-          .length(5),
-        by_visa: z.array(NamedCountSchema).max(100),
-        top_tech: z.array(NamedCountSchema).max(8),
-      })
-      .strict(),
-    requirements: z
-      .object({
-        by_status: z
-          .array(
-            z
-              .object({
-                name: z.enum(["open", "closed", "expired"]),
-                value: CountSchema,
-              })
-              .strict(),
-          )
-          .length(3),
-        by_priority: z
-          .array(
-            z
-              .object({
-                name: z.enum(["low", "medium", "high", "urgent"]),
-                value: CountSchema,
-              })
-              .strict(),
-          )
-          .length(4),
-      })
-      .strict(),
-  })
-  .strict();
+const DashboardOverviewSchema = z.object({
+  kpis: z
+    .object({
+      teamMembers: CountSchema,
+      openRequirements: CountSchema,
+      submissionsThisWeek: CountSchema,
+      submissionsPrevWeek: CountSchema,
+      interviewsScheduled: CountSchema,
+      activeConsultants: CountSchema,
+      benchReady: CountSchema,
+      activePlacements: CountSchema,
+      hiresThisMonth: CountSchema,
+    })
+    .strict(),
+  trend: z
+    .array(
+      z.object({
+        date: z.string(),
+        label: z.string().trim().min(1).max(32),
+        submissions: CountSchema,
+        hired: CountSchema,
+      }),
+    )
+    .max(30)
+    .default([]),
+  funnel: z
+    .array(
+      z.object({
+        stage: z.string(),
+        count: CountSchema,
+      }),
+    )
+    .max(20)
+    .default([]),
+  recruiters: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        name: z.string().trim().min(1).max(255),
+        email: z.string().max(255).optional(),
+        avatar_url: z.string().max(2_000).nullable().optional(),
+        submissions: CountSchema,
+        hires: CountSchema,
+      }),
+    )
+    .max(5)
+    .default([]),
+  bench: z
+    .object({
+      total: CountSchema,
+      immediate: CountSchema,
+      by_availability: z
+        .array(
+          z.object({
+            name: z.string(),
+            value: CountSchema,
+          }),
+        )
+        .max(10)
+        .default([]),
+      by_visa: z.array(NamedCountSchema).max(100).default([]),
+      top_tech: z.array(NamedCountSchema).max(8).default([]),
+    })
+    .default({
+      total: 0,
+      immediate: 0,
+      by_availability: [],
+      by_visa: [],
+      top_tech: [],
+    }),
+  requirements: z
+    .object({
+      by_status: z
+        .array(
+          z.object({
+            name: z.string(),
+            value: CountSchema,
+          }),
+        )
+        .max(10)
+        .default([]),
+      by_priority: z
+        .array(
+          z.object({
+            name: z.string(),
+            value: CountSchema,
+          }),
+        )
+        .max(10)
+        .default([]),
+    })
+    .default({
+      by_status: [],
+      by_priority: [],
+    }),
+});
 
 export type DashboardOverview = z.infer<typeof DashboardOverviewSchema>;
 

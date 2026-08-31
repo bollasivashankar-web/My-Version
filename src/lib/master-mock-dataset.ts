@@ -1,5 +1,5 @@
 /**
- * Master Rich Mock Dataset for Staffinix AI Platform (L4 Recruiter persona: manideepstaff@gmail.com)
+ * Master rich fixture dataset for local UI development.
  * Contains 250+ realistic, non-artificial datapoints matching current schema.
  */
 
@@ -31,7 +31,8 @@ export interface MasterVendor {
   state: string;
   country: string;
   status: "active" | "inactive" | "pending";
-  tier: "preferred" | "approved" | "standard";
+  tier: "preferred" | "approved" | "standard" | "a" | "b" | "c";
+  payment_terms_days?: number;
   notes?: string;
   created_at: string;
 }
@@ -84,7 +85,7 @@ export interface MasterRequisition {
   rate_max: number;
   rate_type: "hourly" | "annual";
   currency: string;
-  status: "open" | "assigned" | "closed" | "on_hold";
+  status: "open" | "assigned" | "closed" | "on_hold" | "expired";
   priority: "urgent" | "high" | "medium" | "low";
   min_experience: string;
   certifications?: string;
@@ -1450,7 +1451,7 @@ export const MASTER_SUBMISSIONS: MasterSubmission[] = [
     rate: "$85/hr",
     score: 94,
     updatedAt: "2h ago",
-    submitted_by: "manideepstaff@gmail.com",
+    submitted_by: "fixture-recruiter@example.invalid",
     created_at: "2026-03-01T10:00:00Z",
   },
   {
@@ -1466,7 +1467,7 @@ export const MASTER_SUBMISSIONS: MasterSubmission[] = [
     rate: "$100/hr",
     score: 96,
     updatedAt: "5h ago",
-    submitted_by: "manideepstaff@gmail.com",
+    submitted_by: "fixture-recruiter@example.invalid",
     created_at: "2026-03-02T11:30:00Z",
   },
   {
@@ -1482,7 +1483,7 @@ export const MASTER_SUBMISSIONS: MasterSubmission[] = [
     rate: "$95/hr",
     score: 92,
     updatedAt: "1d ago",
-    submitted_by: "manideepstaff@gmail.com",
+    submitted_by: "fixture-recruiter@example.invalid",
     created_at: "2026-03-03T14:15:00Z",
   },
   {
@@ -1498,7 +1499,7 @@ export const MASTER_SUBMISSIONS: MasterSubmission[] = [
     rate: "$80/hr",
     score: 88,
     updatedAt: "2d ago",
-    submitted_by: "manideepstaff@gmail.com",
+    submitted_by: "fixture-recruiter@example.invalid",
     created_at: "2026-03-04T09:00:00Z",
   },
   {
@@ -1514,7 +1515,7 @@ export const MASTER_SUBMISSIONS: MasterSubmission[] = [
     rate: "$110/hr",
     score: 98,
     updatedAt: "3d ago",
-    submitted_by: "manideepstaff@gmail.com",
+    submitted_by: "fixture-recruiter@example.invalid",
     created_at: "2026-03-05T16:00:00Z",
   },
   {
@@ -1530,7 +1531,7 @@ export const MASTER_SUBMISSIONS: MasterSubmission[] = [
     rate: "$100/hr",
     score: 95,
     updatedAt: "4d ago",
-    submitted_by: "manideepstaff@gmail.com",
+    submitted_by: "fixture-recruiter@example.invalid",
     created_at: "2026-03-06T10:45:00Z",
   },
 ];
@@ -1562,7 +1563,7 @@ for (let i = 7; i <= 60; i++) {
     rate: `$${candidate.max_rate}/hr`,
     score: candidate.ats_score,
     updatedAt: `${(i % 12) + 1}h ago`,
-    submitted_by: "manideepstaff@gmail.com",
+    submitted_by: "fixture-recruiter@example.invalid",
     created_at: new Date(Date.now() - i * 8 * 60 * 60 * 1000).toISOString(),
   });
 }
@@ -1714,7 +1715,7 @@ export const MASTER_AUDIT_LOGS: MasterAuditLog[] = [
   {
     id: "aud-101",
     action: "requisition.created",
-    actor_email: "manideepstaff@gmail.com",
+    actor_email: "fixture-recruiter@example.invalid",
     entity_type: "requisition",
     entity_id: "req-101",
     created_at: new Date(Date.now() - 37 * 60 * 1000).toISOString(),
@@ -1726,7 +1727,7 @@ export const MASTER_AUDIT_LOGS: MasterAuditLog[] = [
   {
     id: "aud-102",
     action: "submission.created",
-    actor_email: "manideepstaff@gmail.com",
+    actor_email: "fixture-recruiter@example.invalid",
     entity_type: "submission",
     entity_id: "sub-101",
     created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
@@ -1738,7 +1739,7 @@ export const MASTER_AUDIT_LOGS: MasterAuditLog[] = [
   {
     id: "aud-103",
     action: "bench.matched",
-    actor_email: "manideepstaff@gmail.com",
+    actor_email: "fixture-recruiter@example.invalid",
     entity_type: "bench_matching",
     entity_id: "cand-102",
     created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
@@ -1751,7 +1752,7 @@ export const MASTER_AUDIT_LOGS: MasterAuditLog[] = [
   {
     id: "aud-104",
     action: "resume.tailored",
-    actor_email: "manideepstaff@gmail.com",
+    actor_email: "fixture-recruiter@example.invalid",
     entity_type: "tailoring",
     entity_id: "cand-105",
     created_at: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
@@ -1764,7 +1765,7 @@ export const MASTER_AUDIT_LOGS: MasterAuditLog[] = [
   {
     id: "aud-105",
     action: "interview.scheduled",
-    actor_email: "manideepstaff@gmail.com",
+    actor_email: "fixture-recruiter@example.invalid",
     entity_type: "interview",
     entity_id: "int-101",
     created_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
@@ -1825,7 +1826,7 @@ for (let i = 6; i <= 40; i++) {
   MASTER_AUDIT_LOGS.push({
     id: `aud-${100 + i}`,
     action: item.action,
-    actor_email: "manideepstaff@gmail.com",
+    actor_email: "fixture-recruiter@example.invalid",
     entity_type: item.entity_type,
     entity_id: `ent-${100 + i}`,
     created_at: new Date(Date.now() - (i * 2 + 12) * 60 * 60 * 1000).toISOString(),

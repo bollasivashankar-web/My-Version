@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { getDashboardOverview, getRecentActivity } from "@/lib/dashboard.functions";
 import { useProfile } from "@/hooks/use-profile";
 import { useSession } from "@/hooks/use-session";
+import { useRoleLevel } from "@/hooks/use-role-level";
 import {
   FileText,
   Send,
@@ -61,6 +62,7 @@ function UnifiedDashboardPage() {
   const activityFn = useServerFn(getRecentActivity);
   const { data: profile } = useProfile();
   const { isAuthenticated } = useSession();
+  const { level } = useRoleLevel();
 
   const {
     data: overview,
@@ -86,10 +88,24 @@ function UnifiedDashboardPage() {
   const reqs = overview?.requirements;
   const recruiters = overview?.recruiters;
 
-  const firstName = profile?.profile?.full_name?.split(" ")[0] ?? "Recruiter";
+  const firstName =
+    profile?.profile?.full_name?.split(" ")[0] ??
+    (level === "L1"
+      ? "Platform Admin"
+      : level === "L2"
+        ? "Executive"
+        : level === "L3"
+          ? "Developer"
+          : "Recruiter");
 
-  const isLoading = overviewLoading || activityLoading;
-  const isError = overviewError || activityError;
+  const pageDescription =
+    level === "L1"
+      ? "SaaS Platform Overview — Multi-tenant governance, system health, and administrative controls."
+      : level === "L2"
+        ? "Executive Dashboard — High-level recruitment desk KPIs, placements, client partnerships, and team performance."
+        : level === "L3"
+          ? "Developer & Lead Desk — APIs, webhooks, automation status, and recruiter access management."
+          : "Live recruitment desk — Active candidates, requisitions, 14-day trends, and team performance.";
 
   const activeCandidatesCount = stats?.activeConsultants ?? 0;
   const openReqsCount = stats?.openRequirements ?? 0;
@@ -197,35 +213,11 @@ function UnifiedDashboardPage() {
     Hired: t.hired,
   }));
 
-  if (isLoading || isError) {
-    return (
-      <>
-        <AppTopbar title="Dashboard" />
-        <main className="flex-1 space-y-6 p-6 md:p-8">
-          <PageHeader
-            title={`Welcome back, ${firstName}`}
-            description="Live recruitment desk — Active candidates, requisitions, 14-day trends, and team performance."
-          />
-          <Card role={isError ? "alert" : "status"} className="border-border bg-card">
-            <CardContent className="p-8 text-center text-sm text-muted-foreground">
-              {isError
-                ? "Dashboard data could not be loaded. Please retry in a moment."
-                : "Loading dashboard data…"}
-            </CardContent>
-          </Card>
-        </main>
-      </>
-    );
-  }
-
   return (
     <TooltipProvider>
       <AppTopbar title="Dashboard" />
       <main className="flex-1 space-y-6 p-6 md:p-8">
-        <PageHeader
-          title={`Welcome back, ${firstName}`}
-          description="Live recruitment desk — Active candidates, requisitions, 14-day trends, and team performance."
-        />
+        <PageHeader title={`Welcome back, ${firstName}`} description={pageDescription} />
 
         {/* 8 KPIs Grid */}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
@@ -506,7 +498,7 @@ function UnifiedDashboardPage() {
         </section>
 
         {/* Section 4: Jump in & Your Activity Cards (Hidden for L2 Executive View) */}
-        {((profile as any)?.level ?? "L4") !== "L2" && (
+        {level !== "L2" && (
           <section className="grid gap-4 lg:grid-cols-2">
             {/* Jump in Card */}
             <Card className="border-border bg-card">

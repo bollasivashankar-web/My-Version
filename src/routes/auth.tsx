@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import {
@@ -15,7 +16,7 @@ import {
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
+import { getMyProfile } from "@/lib/profile.functions";
 
 import { StaffinixLogo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ const AuthSearch = z.object({
    * provide an arbitrary external URL.
    */
   redirect: z.string().optional(),
+  mode: z.enum(["recovery"]).optional(),
 });
 
 export const Route = createFileRoute("/auth")({
@@ -144,11 +146,12 @@ function getAuthErrorMessage(message?: string): string {
 function AuthPage() {
   const search = useSearch({ from: "/auth" });
   const navigate = useNavigate();
+  const getMyProfileFn = useServerFn(getMyProfile);
 
   const safeRedirect = useMemo(() => getSafeRedirect(search.redirect), [search.redirect]);
 
   /**
-   * If the user already has a valid Supabase session, don't show the login
+   * If Supabase confirms the user, don't show the login
    * screen again.
    */
   useEffect(() => {
@@ -157,20 +160,26 @@ function AuthPage() {
     const checkExistingSession = async () => {
       try {
         const {
-          data: { session },
+          data: { user },
           error,
-        } = await supabase.auth.getSession();
+        } = await supabase.auth.getUser();
 
         if (error) {
           console.error("Failed to retrieve authentication session:", error);
           return;
         }
 
-        if (mounted && session?.user) {
-          navigate({
-            to: safeRedirect,
-            replace: true,
-          });
+        if (mounted && user && search.mode !== "recovery") {
+          try {
+            await getMyProfileFn();
+            navigate({
+              to: safeRedirect,
+              replace: true,
+            });
+          } catch {
+            await supabase.auth.signOut();
+            toast.error("Your account is not provisioned for this application.");
+          }
         }
       } catch (error) {
         console.error("Session initialization failed:", error);
@@ -182,7 +191,7 @@ function AuthPage() {
     return () => {
       mounted = false;
     };
-  }, [navigate, safeRedirect]);
+  }, [getMyProfileFn, navigate, safeRedirect, search.mode]);
 
   return (
     <div className="relative min-h-screen bg-background">
@@ -267,21 +276,25 @@ function AuthPage() {
               </p>
             </div>
 
-            <Tabs defaultValue="signin">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Sign in</TabsTrigger>
+            {search.mode === "recovery" ? (
+              <PasswordRecoveryForm />
+            ) : (
+              <Tabs defaultValue="signin">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="signin">Sign in</TabsTrigger>
 
-                <TabsTrigger value="signup">Create account</TabsTrigger>
-              </TabsList>
+                  <TabsTrigger value="signup">Create account</TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="signin" className="mt-5">
-                <SignInForm redirect={safeRedirect} />
-              </TabsContent>
+                <TabsContent value="signin" className="mt-5">
+                  <SignInForm redirect={safeRedirect} />
+                </TabsContent>
 
-              <TabsContent value="signup" className="mt-5">
-                <SignUpForm redirect={safeRedirect} />
-              </TabsContent>
-            </Tabs>
+                <TabsContent value="signup" className="mt-5">
+                  <SignUpForm redirect={safeRedirect} />
+                </TabsContent>
+              </Tabs>
+            )}
 
             <p className="mt-6 text-center text-[11px] text-muted-foreground">
               By continuing you agree to Staffinix&apos;s terms of service.
@@ -316,30 +329,22 @@ function GoogleButton({ redirect }: { redirect: string }) {
     setLoading(true);
 
     try {
-      /**
-       * OAuth callback returns to the current origin.
-       *
-       * The application should restore the intended destination after
-       * authentication through your router/auth state handling.
-       */
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+      const callbackUrl = new URL("/auth", window.location.origin);
+      callbackUrl.searchParams.set("redirect", redirect);
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: callbackUrl.toString(),
+        },
       });
 
-      if (result.error) {
-        console.error("Google OAuth failed:", result.error);
+      if (error) {
+        console.error("Google OAuth failed:", error);
 
-        toast.error(getAuthErrorMessage(result.error.message));
+        toast.error(getAuthErrorMessage(error.message));
 
         setLoading(false);
-        return;
-      }
-
-      /**
-       * If the provider didn't redirect automatically, navigate manually.
-       */
-      if (!result.redirected) {
-        window.location.assign(redirect);
       }
     } catch (error) {
       console.error("Google sign-in failed:", error);
@@ -402,12 +407,37 @@ function GoogleIcon() {
 
 function SignInForm({ redirect }: { redirect: string }) {
   const navigate = useNavigate();
+  const getMyProfileFn = useServerFn(getMyProfile);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+
+  async function handlePasswordReset() {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      toast.error("Enter your email address first.");
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const callbackUrl = new URL("/auth", window.location.origin);
+      callbackUrl.searchParams.set("mode", "recovery");
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: callbackUrl.toString(),
+      });
+      if (error) throw error;
+      toast.success("If that account exists, a password reset link has been sent.");
+    } catch {
+      toast.error(AUTH_ERROR_MESSAGES.GENERIC);
+    } finally {
+      setResetLoading(false);
+    }
+  }
 
   async function handleSignIn(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -431,24 +461,35 @@ function SignInForm({ redirect }: { redirect: string }) {
     setLoading(true);
 
     try {
-      /**
-       * IMPORTANT:
-       *
-       * There are NO demo accounts here.
-       * There are NO hardcoded passwords.
-       * There is NO role selection.
-       *
-       * Supabase Auth is the authentication authority.
-       */
-      const { authService } = await import("@/lib/auth-service");
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
 
-      const profile = await authService.signIn(normalizedEmail, password);
+      if (error || !data.user) {
+        throw new Error(getAuthErrorMessage(error?.message));
+      }
+
+      let fullName =
+        data.user.user_metadata?.full_name ||
+        data.user.user_metadata?.name ||
+        data.user.email?.split("@")[0] ||
+        "User";
+
+      try {
+        const profile = await getMyProfileFn();
+        if (profile?.profile?.full_name) {
+          fullName = profile.profile.full_name;
+        }
+      } catch {
+        await supabase.auth.signOut();
+        throw new Error("Your account is not provisioned for this application.");
+      }
 
       /**
-       * The profile comes from the database after successful
-       * authentication. The login page never assigns a role.
+       * Authentication succeeded.
        */
-      toast.success(`Welcome back, ${profile.fullName}.`);
+      toast.success(`Welcome back, ${fullName}.`);
 
       navigate({
         to: redirect,
@@ -509,10 +550,11 @@ function SignInForm({ redirect }: { redirect: string }) {
 
             <button
               type="button"
-              onClick={() => {}}
+              onClick={handlePasswordReset}
+              disabled={loading || resetLoading}
               className="text-[11px] text-primary hover:underline"
             >
-              Forgot password?
+              {resetLoading ? "Sending…" : "Forgot password?"}
             </button>
           </div>
 
@@ -551,6 +593,78 @@ function SignInForm({ redirect }: { redirect: string }) {
 
       <SecurityNotice />
     </div>
+  );
+}
+
+function PasswordRecoveryForm() {
+  const navigate = useNavigate();
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleRecovery(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      toast.error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) throw new Error("Recovery session is invalid or expired.");
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      await supabase.auth.signOut();
+      toast.success("Password updated. Sign in with your new password.");
+      navigate({ to: "/auth", replace: true });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : AUTH_ERROR_MESSAGES.GENERIC);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleRecovery} className="space-y-4">
+      <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+        Choose a new password for your authenticated account.
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="recovery-password">New password</Label>
+        <Input
+          id="recovery-password"
+          type="password"
+          autoComplete="new-password"
+          minLength={MIN_PASSWORD_LENGTH}
+          required
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          disabled={loading}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="recovery-confirm-password">Confirm new password</Label>
+        <Input
+          id="recovery-confirm-password"
+          type="password"
+          autoComplete="new-password"
+          minLength={MIN_PASSWORD_LENGTH}
+          required
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
+          disabled={loading}
+        />
+      </div>
+      <Button type="submit" className="w-full" disabled={loading}>
+        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        Update password
+      </Button>
+    </form>
   );
 }
 

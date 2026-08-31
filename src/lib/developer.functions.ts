@@ -26,7 +26,7 @@ const WorkflowSchema = z.object({
 });
 
 async function requireAdmin(context: { supabase: any; userId: string }) {
-  const { requireAdmin: check } = await import("@/lib/rbac.server");
+  const { requireDeveloperAdmin: check } = await import("@/lib/rbac.server");
   await check(context.supabase, context.userId);
 }
 

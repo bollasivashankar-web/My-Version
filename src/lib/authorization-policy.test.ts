@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   assertAdmin,
   assertCanManageUser,
+  assertDeveloperAdmin,
   assertPlatformAdmin,
   assertSuperAdmin,
   ForbiddenError,
@@ -35,19 +36,34 @@ test("admin and super admin can access company-admin operations", () => {
   assert.doesNotThrow(() => assertAdmin(snapshot(["super_admin"])));
 });
 
+test("developer_admin, admin, and super admin can access developer console operations", () => {
+  assert.doesNotThrow(() => assertDeveloperAdmin(snapshot(["developer_admin"])));
+  assert.doesNotThrow(() => assertDeveloperAdmin(snapshot(["admin"])));
+  assert.doesNotThrow(() => assertDeveloperAdmin(snapshot(["super_admin"])));
+  assert.doesNotThrow(() => assertDeveloperAdmin(snapshot([], { platformRole: "platform_owner" })));
+  assert.throws(() => assertDeveloperAdmin(snapshot(["recruiter"])), ForbiddenError);
+  assert.throws(() => assertDeveloperAdmin(snapshot([])), ForbiddenError);
+});
+
 test("only super admin can access super-admin operations", () => {
   assert.throws(() => assertSuperAdmin(snapshot(["admin"])), ForbiddenError);
+  assert.throws(() => assertSuperAdmin(snapshot(["developer_admin"])), ForbiddenError);
   assert.doesNotThrow(() => assertSuperAdmin(snapshot(["super_admin"])));
 });
 
 test("company roles cannot access platform operations", () => {
   assert.throws(() => assertPlatformAdmin(snapshot(["super_admin"])), ForbiddenError);
+  assert.throws(() => assertPlatformAdmin(snapshot(["developer_admin"])), ForbiddenError);
   assert.doesNotThrow(() => assertPlatformAdmin(snapshot([], { platformRole: "platform_admin" })));
   assert.doesNotThrow(() => assertPlatformAdmin(snapshot([], { platformRole: "platform_owner" })));
 });
 
 test("inactive users are denied regardless of role", () => {
   assert.throws(() => assertAdmin(snapshot(["super_admin"], { active: false })), ForbiddenError);
+  assert.throws(
+    () => assertDeveloperAdmin(snapshot(["developer_admin"], { active: false })),
+    ForbiddenError,
+  );
   assert.throws(
     () => assertPlatformAdmin(snapshot([], { active: false, platformRole: "platform_owner" })),
     ForbiddenError,

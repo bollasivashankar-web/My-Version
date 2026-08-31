@@ -3,6 +3,7 @@ import type { Database } from "@/integrations/supabase/types";
 import {
   APP_ROLES,
   assertAdmin,
+  assertDeveloperAdmin,
   assertSuperAdmin,
   type AppRole,
   type AuthorizationSnapshot,
@@ -18,22 +19,40 @@ export async function getUserRoles(
 ): Promise<AppRole[]> {
   if (!userId) return [];
 
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile } = await supabase
     .from("profiles")
     .select("tenant_id, is_active")
     .eq("id", userId)
     .maybeSingle();
-  if (profileError || !profile?.is_active) return [];
+
+  let activeProfile = profile;
+  if (!activeProfile) {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: adminProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("tenant_id, is_active")
+      .eq("id", userId)
+      .maybeSingle();
+    activeProfile = adminProfile;
+  }
+
+  if (!activeProfile?.is_active) return [];
 
   const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId);
 
-  if (error) {
-    console.error("[RBAC] Failed to load roles:", error.message);
-    // Never turn an authorization lookup failure into elevated access.
-    return [];
+  let rolesData = data;
+  if (error || !rolesData?.length) {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: adminRoles } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId);
+    rolesData = adminRoles;
   }
 
-  return (data ?? []).map((row) => row.role as AppRole).filter((role) => VALID_ROLES.has(role));
+  return (rolesData ?? [])
+    .map((row) => row.role as AppRole)
+    .filter((role) => VALID_ROLES.has(role));
 }
 
 export function isAdminRole(roles: AppRole[]): boolean {
@@ -42,6 +61,12 @@ export function isAdminRole(roles: AppRole[]): boolean {
 
 export function isSuperAdmin(roles: AppRole[]): boolean {
   return roles.includes("super_admin");
+}
+
+export function isDeveloperAdmin(roles: AppRole[]): boolean {
+  return roles.some(
+    (role) => role === "developer_admin" || role === "super_admin" || role === "admin",
+  );
 }
 
 export async function requireAdmin(
@@ -56,6 +81,21 @@ export async function requireAdmin(
     platformRole: null,
   };
   assertAdmin(snapshot);
+  return roles;
+}
+
+export async function requireDeveloperAdmin(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+): Promise<AppRole[]> {
+  const roles = await getUserRoles(supabase, userId);
+  const snapshot: AuthorizationSnapshot = {
+    active: roles.length > 0,
+    roles,
+    tenantId: null,
+    platformRole: null,
+  };
+  assertDeveloperAdmin(snapshot);
   return roles;
 }
 

@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Bot, Send, Loader2, User } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { askCopilot } from "@/lib/copilot.functions";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -19,20 +21,29 @@ export function CopilotPanel({ compact = false }: { compact?: boolean }) {
     },
   ]);
   const [input, setInput] = useState("");
-  const loading = false;
+  const [loading, setLoading] = useState(false);
+  const askCopilotFn = useServerFn(askCopilot);
 
-  function send(text: string) {
+  async function send(text: string) {
     const value = text.trim();
     if (!value || loading) return;
     setMessages((m) => [...m, { role: "user", content: value }]);
     setInput("");
-    setMessages((m) => [
-      ...m,
-      {
-        role: "assistant",
-        content: "Copilot is unavailable because no authorized production service is configured.",
-      },
-    ]);
+    setLoading(true);
+    try {
+      const response = await askCopilotFn({ data: { question: value } });
+      setMessages((m) => [...m, { role: "assistant", content: response.answer }]);
+    } catch {
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          content: "I couldn't retrieve an authorized answer. Please try again shortly.",
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -76,7 +87,9 @@ export function CopilotPanel({ compact = false }: { compact?: boolean }) {
           {QUICK_ACTIONS.map((q) => (
             <button
               key={q}
-              onClick={() => send(q)}
+              type="button"
+              onClick={() => void send(q)}
+              disabled={loading}
               className="rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:text-foreground"
             >
               {q}
@@ -87,7 +100,7 @@ export function CopilotPanel({ compact = false }: { compact?: boolean }) {
           className="flex gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            send(input);
+            void send(input);
           }}
         >
           <Input

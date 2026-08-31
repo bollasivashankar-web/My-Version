@@ -67,10 +67,11 @@ export const Route = createFileRoute("/_authenticated/candidates/")({
 });
 
 import { useProfile } from "@/hooks/use-profile";
+import { useRoleLevel } from "@/hooks/use-role-level";
 
 function BenchCandidatesPage() {
   const { data: profile } = useProfile();
-  const level = (profile as any)?.level ?? "L4";
+  const { level } = useRoleLevel();
   const isL3orL4 = level === "L3" || level === "L4";
 
   const [search, setSearch] = useState("");

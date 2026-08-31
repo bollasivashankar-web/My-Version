@@ -46,6 +46,7 @@ const productionFiles = [
   "src/lib/matching.functions.ts",
   "src/lib/tailoring.functions.ts",
   "src/lib/embedding-service.server.ts",
+  "src/lib/copilot.functions.ts",
 ];
 
 for (const file of productionFiles) {
@@ -60,6 +61,7 @@ for (const file of productionFiles) {
 
 const candidates = readFileSync(resolve(root, "src/lib/candidates.functions.ts"), "utf8");
 const requirements = readFileSync(resolve(root, "src/lib/requirements.functions.ts"), "utf8");
+const copilot = readFileSync(resolve(root, "src/lib/copilot.functions.ts"), "utf8");
 for (const [name, source] of [
   ["candidate parser", candidates],
   ["requirement parser", requirements],
@@ -72,6 +74,11 @@ for (const [name, source] of [
   );
   assert.match(source, /requestStructuredAiOutput/, `${name} lacks schema-bound AI output`);
 }
+
+assert.match(copilot, /requireSupabaseAuth/, "Copilot lacks authenticated tenant scoping");
+assert.match(copilot, /UNTRUSTED_DOCUMENT_SYSTEM_RULES/, "Copilot lacks injection-resistant rules");
+assert.match(copilot, /requestStructuredAiOutput/, "Copilot lacks schema-bound AI output");
+assert.match(copilot, /Never make or recommend automatic hiring\/rejection decisions/);
 
 const worker = readFileSync(resolve(root, "workers/document-processor/server.mjs"), "utf8");
 const documentJob = readFileSync(

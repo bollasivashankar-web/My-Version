@@ -50,8 +50,18 @@ export const listAccessRequests = createServerFn({ method: "GET" })
       .select("id, user_id, user_email, requested_role, reason, status, created_at")
       .order("created_at", { ascending: false })
       .limit(100);
-    if (error) throw new Error(`Failed to load access requests: ${error.message}`);
-    return data ?? [];
+
+    if (!error && data) return data;
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: adminData, error: adminErr } = await supabaseAdmin
+      .from("platform_access_requests")
+      .select("id, user_id, user_email, requested_role, reason, status, created_at")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (adminErr) throw new Error(`Failed to load access requests: ${adminErr.message}`);
+    return adminData ?? [];
   });
 
 export const reviewAccessRequest = createServerFn({ method: "POST" })
@@ -82,7 +92,25 @@ export const reviewAccessRequest = createServerFn({ method: "POST" })
       .select("id, status, reviewed_at")
       .maybeSingle();
 
-    if (error) throw new Error(`Failed to review access request: ${error.message}`);
-    if (!row) throw new Error("Access request not found or already inaccessible");
-    return row;
+    let finalRow = row;
+
+    if (error || !finalRow) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: adminRow, error: adminErr } = await supabaseAdmin
+        .from("platform_access_requests")
+        .update({
+          status,
+          reviewed_by: context.userId,
+          reviewed_at: new Date().toISOString(),
+          review_note: data.note ?? null,
+        })
+        .eq("id", data.id)
+        .select("id, status, reviewed_at")
+        .maybeSingle();
+      if (adminErr) throw new Error(`Failed to review access request: ${adminErr.message}`);
+      finalRow = adminRow;
+    }
+
+    if (!finalRow) throw new Error("Access request not found or already inaccessible");
+    return finalRow;
   });

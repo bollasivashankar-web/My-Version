@@ -1,4 +1,5 @@
 import { createMiddleware } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { createClient, type JwtPayload, type User } from "@supabase/supabase-js";
 
 import type { Database } from "./types";
@@ -280,7 +281,8 @@ async function authenticateRequest(request: Request): Promise<SupabaseAuthContex
  */
 export const requireSupabaseAuth = createMiddleware({
   type: "function",
-}).server(async ({ next, request }) => {
+}).server(async ({ next }) => {
+  const request = getRequest();
   const authContext = await authenticateRequest(request);
 
   return next({

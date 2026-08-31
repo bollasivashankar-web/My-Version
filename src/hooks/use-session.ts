@@ -1,5 +1,7 @@
+import type { User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
-import { authService, UserProfile } from "@/lib/auth-service";
+
+import { supabase } from "@/integrations/supabase/client";
 
 let signingOut = false;
 const signOutListeners = new Set<(value: boolean) => void>();
@@ -18,26 +20,57 @@ export function cancelSignOut() {
 }
 
 export function useSession() {
-  const [user, setUser] = useState<UserProfile | null>(() => authService.getCurrentUser());
+  const [user, setUser] = useState<User | null>(null);
+  const [ready, setReady] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(signingOut);
 
   useEffect(() => {
+    let active = true;
+
+    const synchronizeUser = async () => {
+      const {
+        data: { user: verifiedUser },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (!active) return;
+      setUser(error ? null : verifiedUser);
+      setReady(true);
+      if (!error && verifiedUser) setSigningOut(false);
+    };
+
     signOutListeners.add(setIsSigningOut);
-    const unsubscribe = authService.subscribe((updated) => {
-      setUser(updated);
-      setSigningOut(false);
+    void synchronizeUser();
+
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        setUser(null);
+        setReady(true);
+        setSigningOut(false);
+        return;
+      }
+
+      if (
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED" ||
+        event === "USER_UPDATED" ||
+        event === "INITIAL_SESSION"
+      ) {
+        queueMicrotask(() => void synchronizeUser());
+      }
     });
+
     return () => {
+      active = false;
       signOutListeners.delete(setIsSigningOut);
-      unsubscribe();
+      data.subscription.unsubscribe();
     };
   }, []);
 
   return {
     user,
-    session: user ? ({ user: { id: user.id, email: user.email } } as any) : null,
-    ready: true,
+    ready,
     isSigningOut,
-    isAuthenticated: Boolean(user) && !isSigningOut,
+    isAuthenticated: ready && Boolean(user) && !isSigningOut,
   };
 }

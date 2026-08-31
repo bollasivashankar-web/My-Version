@@ -199,46 +199,13 @@ function UserRow({
       .join("")
       .toUpperCase() ?? user.email[0].toUpperCase();
 
-  const currentRole = user.roles[0] ?? "recruiter";
+  const currentRole = user.roles[0];
   const isSelf = user.id === meId;
 
-  // Workload metrics mapped cleanly to team member
-  const openReqs =
-    (user as any).open_requirements ??
-    (user.email.includes("manideepstaff")
-      ? 8
-      : user.email.includes("sofia")
-        ? 5
-        : user.email.includes("manistaff")
-          ? 3
-          : 2);
-  const submissions =
-    (user as any).submissions ??
-    (user.email.includes("manideepstaff")
-      ? 24
-      : user.email.includes("sofia")
-        ? 18
-        : user.email.includes("manistaff")
-          ? 12
-          : 6);
-  const interviews =
-    (user as any).interviews ??
-    (user.email.includes("manideepstaff")
-      ? 11
-      : user.email.includes("sofia")
-        ? 7
-        : user.email.includes("manistaff")
-          ? 4
-          : 2);
-  const placements =
-    (user as any).placements ??
-    (user.email.includes("manideepstaff")
-      ? 5
-      : user.email.includes("sofia")
-        ? 4
-        : user.email.includes("manistaff")
-          ? 2
-          : 1);
+  const openReqs = (user as any).open_requirements ?? 0;
+  const submissions = (user as any).submissions ?? 0;
+  const interviews = (user as any).interviews ?? 0;
+  const placements = (user as any).placements ?? 0;
 
   return (
     <TableRow>
@@ -268,7 +235,7 @@ function UserRow({
       <TableCell>
         {isSuperAdmin && !isSelf ? (
           <Select
-            value={currentRole}
+            value={currentRole ?? undefined}
             onValueChange={(v) => roleMutation.mutate(v)}
             disabled={roleMutation.isPending}
           >
@@ -285,7 +252,7 @@ function UserRow({
           </Select>
         ) : (
           <Badge variant="secondary" className="font-normal">
-            {roleLabel(currentRole)}
+            {currentRole ? roleLabel(currentRole) : "No role"}
           </Badge>
         )}
       </TableCell>

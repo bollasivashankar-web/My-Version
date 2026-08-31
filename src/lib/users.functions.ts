@@ -2,14 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const APP_ROLES = [
-  "super_admin",
-  "admin",
-  "recruiter",
-  "account_manager",
-  "delivery_manager",
-  "marketing_executive",
-] as const;
+import { APP_ROLES } from "@/lib/authorization-policy";
+
 const AppRoleSchema = z.enum(APP_ROLES);
 
 async function requireAdminContext(context: any) {

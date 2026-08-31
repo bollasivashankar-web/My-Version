@@ -109,16 +109,7 @@ export const Route = createFileRoute("/_authenticated")({
       /**
        * Ask Supabase Auth for the currently authenticated user.
        *
-       * This replaces:
-       *
-       *     authService.getCurrentUser()
-       *
-       * because that method previously relied on application-managed
-       * localStorage state.
-       *
-       * We do NOT read:
-       *
-       *     localStorage.getItem("staffinix_auth_state")
+       * Application-managed identity caches are never consulted here.
        */
       const {
         data: { user },

@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { ForbiddenError } from "@/lib/authorization-policy";
+import { ForbiddenError } from "./authorization-policy.ts";
+
+export function isPlatformAdministratorRole(role: string | null | undefined): boolean {
+  return role === "platform_owner" || role === "platform_admin";
+}
 
 export async function is_platform_admin(
   supabase: SupabaseClient<Database>,
@@ -20,12 +24,9 @@ export async function is_platform_admin(
     .select("role")
     .eq("user_id", userId)
     .maybeSingle();
-  if (error) {
-    console.error("[PlatformAuth] Failed to load platform role:", error.message);
-    return false;
-  }
 
-  return data?.role === "platform_owner" || data?.role === "platform_admin";
+  if (error) return false;
+  return isPlatformAdministratorRole(data?.role);
 }
 
 export async function requirePlatformAdmin(

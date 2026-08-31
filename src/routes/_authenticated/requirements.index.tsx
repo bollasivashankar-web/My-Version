@@ -62,6 +62,15 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
+const getStatusStyle = (s?: string) =>
+  (s && (STATUS_STYLES as Record<string, string>)[s]) || STATUS_STYLES.open;
+const getStatusLabel = (s?: string) =>
+  (s && (STATUS_LABEL as Record<string, string>)[s]) || STATUS_LABEL.open;
+const getPriorityStyle = (p?: string) =>
+  (p && (PRIORITY_STYLES as Record<string, string>)[p]) || PRIORITY_STYLES.medium;
+const getPriorityLabel = (p?: string) =>
+  (p && (PRIORITY_LABEL as Record<string, string>)[p]) || PRIORITY_LABEL.medium;
+
 export const Route = createFileRoute("/_authenticated/requirements/")({
   head: () => ({ meta: [{ title: "Requisitions — Staffinix" }] }),
   component: RequisitionsListPage,
@@ -95,178 +104,196 @@ function RequisitionsListPage() {
     placeholderData: (prev) => prev,
   });
 
-  const combinedRows = useMemo(() => {
-    let rows = [...(data?.rows ?? [])] as any[];
+  const totalCount = data?.total ?? 0;
+  const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
-    // Sort
-    rows = [...rows].sort((a, b) => {
-      if (sortBy === "title_asc") return a.title.localeCompare(b.title);
-      if (sortBy === "title_desc") return b.title.localeCompare(a.title);
-      if (sortBy === "client_asc") return (a.client_name ?? "").localeCompare(b.client_name ?? "");
-      if (sortBy === "rate_desc") return (b.rate_max ?? 0) - (a.rate_max ?? 0);
+  const filteredRequirements = useMemo(() => {
+    const rows = data?.rows ?? [];
+    return [...rows].sort((a: any, b: any) => {
       if (sortBy === "created_desc")
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (sortBy === "created_asc")
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      if (sortBy === "rate_desc") return (b.rate_max || 0) - (a.rate_max || 0);
+      if (sortBy === "rate_asc") return (a.rate_max || 0) - (b.rate_max || 0);
       return 0;
     });
-    return rows;
   }, [data?.rows, sortBy]);
 
-  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / pageSize));
-  const paginatedRows = combinedRows;
-
   return (
-    <>
+    <div className="flex min-h-screen flex-col bg-background">
       <AppTopbar title="Requisitions" />
-      <main className="flex-1 space-y-6 p-6 md:p-8">
+
+      <div className="flex-1 space-y-4 p-6">
         <PageHeader
-          title="Requisitions"
-          description="Manage open client job requisitions, required skills, visa categories, rates, and reviews."
+          title="Requisitions & JDs"
+          description="Manage client job requirements, rate targets, required tech stacks, and track candidate pipeline fulfillment."
           actions={
-            <Button size="sm" asChild>
+            <Button
+              asChild
+              className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-primary-foreground shadow-md transition-all duration-200"
+            >
               <Link to="/requirements/new">
-                <Plus className="mr-1.5 h-4 w-4" /> New Requisition
+                <Plus className="h-4 w-4" /> Add Requisition
               </Link>
             </Button>
           }
         />
 
-        {/* Filters & Sorting Strip */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[240px] max-w-md">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search by title, vendor, client, skills…"
-              className="pl-8 text-xs"
-              value={search}
-              onChange={(e) => {
+        {/* Global Toolbar Filters */}
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card/60 p-4 shadow-sm backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by title, technology, or client..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="pl-9 bg-surface text-xs"
+              />
+            </div>
+
+            <Select
+              value={status}
+              onValueChange={(val) => {
+                setStatus(val);
                 setPage(1);
-                setSearch(e.target.value);
               }}
-            />
+            >
+              <SelectTrigger className="w-[140px] bg-surface text-xs h-9">
+                <SelectValue placeholder="Status: All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                {REQ_STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={priority}
+              onValueChange={(val) => {
+                setPriority(val);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[140px] bg-surface text-xs h-9">
+                <SelectValue placeholder="Priority: All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priorities</SelectItem>
+                {REQ_PRIORITIES.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {PRIORITY_LABEL[p]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <Select
-            value={status}
-            onValueChange={(v) => {
-              setPage(1);
-              setStatus(v);
-            }}
-          >
-            <SelectTrigger className="w-36 text-xs">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              {REQ_STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {STATUS_LABEL[s]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={priority}
-            onValueChange={(v) => {
-              setPage(1);
-              setPriority(v);
-            }}
-          >
-            <SelectTrigger className="w-36 text-xs">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All priorities</SelectItem>
-              {REQ_PRIORITIES.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {PRIORITY_LABEL[p]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-44 text-xs">
-              <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="created_desc">Newest First</SelectItem>
-              <SelectItem value="title_asc">Title (A-Z)</SelectItem>
-              <SelectItem value="title_desc">Title (Z-A)</SelectItem>
-              <SelectItem value="client_asc">Client Name</SelectItem>
-              <SelectItem value="rate_desc">Highest Rate</SelectItem>
-            </SelectContent>
-          </Select>
+
+          <div className="flex items-center gap-2">
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[160px] bg-surface text-xs h-9">
+                <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                <SelectValue placeholder="Sort By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="created_desc">Newest First</SelectItem>
+                <SelectItem value="created_asc">Oldest First</SelectItem>
+                <SelectItem value="rate_desc">Highest Rate</SelectItem>
+                <SelectItem value="rate_asc">Lowest Rate</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {/* Requisitions Table */}
-        <div className="rounded-lg border border-border bg-card shadow-sm">
+        {/* Requirements Table Grid */}
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
           {isLoading ? (
-            <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading requisitions…
+            <div className="flex h-64 items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : error ? (
-            <div className="p-6 text-sm text-destructive">{(error as Error).message}</div>
-          ) : combinedRows.length === 0 ? (
-            <EmptyState />
+          ) : filteredRequirements.length === 0 ? (
+            <div className="flex h-64 flex-col items-center justify-center text-center p-6 space-y-3">
+              <FileText className="h-10 w-10 text-muted-foreground stroke-[1.5]" />
+              <div>
+                <p className="text-sm font-medium text-foreground">No requisitions found</p>
+                <p className="text-xs text-muted-foreground">
+                  Try adjusting your search filters or add a new job requisition.
+                </p>
+              </div>
+            </div>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[280px]">Job Title & Main Skills</TableHead>
-                  <TableHead>Vendor</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Location</TableHead>
+                <TableRow className="border-b border-border/80 bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="w-[280px]">Job Title & Domain</TableHead>
+                  <TableHead>Client & Vendor</TableHead>
+                  <TableHead>Location / Mode</TableHead>
                   <TableHead>Visa</TableHead>
-                  <TableHead>Rate</TableHead>
+                  <TableHead>Target Rate</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Priority</TableHead>
                   <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedRows.map((r) => (
-                  <TableRow key={r.id} className="hover:bg-muted/40 transition-colors">
-                    <TableCell>
-                      <div className="font-semibold text-sm text-foreground">{r.title}</div>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {r.skills.slice(0, 4).map((s: any, idx: number) => {
-                          const skillText = typeof s === "string" ? s : s.skill;
-                          const skillKey =
-                            typeof s === "string" ? `${s}-${idx}` : s.id || `${s.skill}-${idx}`;
-                          return (
+                {filteredRequirements.map((r: any) => (
+                  <TableRow
+                    key={r.id}
+                    className="border-b border-border/60 hover:bg-accent/40 cursor-pointer transition-colors"
+                    onClick={() => setReviewReq(r)}
+                  >
+                    <TableCell className="font-medium">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-foreground hover:text-primary transition-colors">
+                          {r.title}
+                        </span>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          {(r.skills ?? []).slice(0, 3).map((s: string) => (
                             <Badge
-                              key={skillKey}
+                              key={s}
                               variant="secondary"
-                              className="bg-primary/10 text-[10px] text-primary border-0 font-normal px-1.5 py-0"
+                              className="text-[10px] px-1.5 py-0 font-normal bg-surface border border-border"
                             >
-                              {skillText}
+                              {s}
                             </Badge>
-                          );
-                        })}
-                        {r.skills.length > 4 && (
-                          <span className="text-[10px] text-muted-foreground">
-                            +{r.skills.length - 4}
-                          </span>
-                        )}
+                          ))}
+                          {(r.skills ?? []).length > 3 && (
+                            <span className="text-[10px] text-muted-foreground">
+                              +{r.skills.length - 3}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="font-medium text-xs text-foreground">{r.vendor_name}</div>
-                      <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 mt-0.5">
-                        <span>{r.vendor_email}</span>
-                        <span>{r.vendor_contact}</span>
+                      <div className="text-xs">
+                        <p className="font-medium text-foreground">{r.client_name || "Direct"}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {r.vendor_name || "Direct Sourcing"}
+                        </p>
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs font-medium text-foreground">
-                      {r.client_name}
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="truncate max-w-[120px]">
+                          {r.location || "Remote"} ({r.work_mode || "remote"})
+                        </span>
+                      </div>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        <MapPin className="h-3 w-3 shrink-0 text-muted-foreground" />
-                        {r.location}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-xs font-medium text-foreground">
-                      <Badge variant="outline" className="text-[10px]">
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] bg-surface font-mono font-normal"
+                      >
                         {r.visa_required}
                       </Badge>
                     </TableCell>
@@ -278,10 +305,10 @@ function RequisitionsListPage() {
                         variant="outline"
                         className={cn(
                           "font-normal capitalize text-[10px]",
-                          STATUS_STYLES[r.status] || STATUS_STYLES.open,
+                          getStatusStyle(r.status),
                         )}
                       >
-                        {STATUS_LABEL[r.status] || STATUS_LABEL.open}
+                        {getStatusLabel(r.status)}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -289,10 +316,10 @@ function RequisitionsListPage() {
                         variant="outline"
                         className={cn(
                           "font-normal capitalize text-[10px]",
-                          PRIORITY_STYLES[r.priority],
+                          getPriorityStyle(r.priority),
                         )}
                       >
-                        {PRIORITY_LABEL[r.priority]}
+                        {getPriorityLabel(r.priority)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">
@@ -334,15 +361,15 @@ function RequisitionsListPage() {
                   <div className="flex items-center gap-2">
                     <Badge
                       variant="outline"
-                      className={cn("text-[10px]", STATUS_STYLES[reviewReq.status])}
+                      className={cn("text-[10px]", getStatusStyle(reviewReq.status))}
                     >
-                      {STATUS_LABEL[reviewReq.status]}
+                      {getStatusLabel(reviewReq.status)}
                     </Badge>
                     <Badge
                       variant="outline"
-                      className={cn("text-[10px]", PRIORITY_STYLES[reviewReq.priority])}
+                      className={cn("text-[10px]", getPriorityStyle(reviewReq.priority))}
                     >
-                      {PRIORITY_LABEL[reviewReq.priority]} Priority
+                      {getPriorityLabel(reviewReq.priority)} Priority
                     </Badge>
                   </div>
                   <SheetTitle className="text-xl font-bold text-foreground">
@@ -478,8 +505,8 @@ function RequisitionsListPage() {
         {/* Pagination */}
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>
-            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, combinedRows.length)} of{" "}
-            {combinedRows.length}
+            Showing {totalCount > 0 ? (page - 1) * pageSize + 1 : 0}–
+            {Math.min(page * pageSize, totalCount)} of {totalCount}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -503,8 +530,8 @@ function RequisitionsListPage() {
             </Button>
           </div>
         </div>
-      </main>
-    </>
+      </div>
+    </div>
   );
 }
 

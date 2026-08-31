@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { ArrowLeft, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowLeft, CircleAlert, CircleCheck, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppTopbar } from "@/components/app-shell/topbar";
@@ -111,6 +111,14 @@ function MatchingPage() {
               </CardContent>
             </Card>
 
+            <Card className="border-amber-500/30 bg-amber-500/5">
+              <CardContent className="p-4 text-xs text-muted-foreground">
+                Scores are decision support only. Recorded hard constraints are evaluated
+                deterministically, but every candidate still requires recruiter review before any
+                hiring or rejection action.
+              </CardContent>
+            </Card>
+
             <div className="grid gap-4">
               {rows.map((row) => (
                 <Card key={row.candidate.id} className="border-border bg-card">
@@ -130,11 +138,33 @@ function MatchingPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="flex flex-wrap gap-2">
+                    <Badge
+                      variant="outline"
+                      className={
+                        row.hard_constraints.passed
+                          ? "border-emerald-500/30 text-emerald-600"
+                          : "border-amber-500/30 text-amber-600"
+                      }
+                    >
+                      {row.hard_constraints.passed ? (
+                        <CircleCheck className="mr-1 h-3 w-3" />
+                      ) : (
+                        <CircleAlert className="mr-1 h-3 w-3" />
+                      )}
+                      {row.hard_constraints.passed
+                        ? "Recorded hard constraints met"
+                        : "Needs human review"}
+                    </Badge>
                     {row.matched_skills.map((skill) => (
                       <Badge key={skill} variant="outline">
                         {skill}
                       </Badge>
                     ))}
+                    {!row.hard_constraints.passed && (
+                      <p className="w-full text-xs text-muted-foreground">
+                        {row.hard_constraints.reasons.join(" · ")}
+                      </p>
+                    )}
                     <Button asChild variant="ghost" size="sm" className="ml-auto">
                       <Link to="/candidates/$id" params={{ id: row.candidate.id }}>
                         View candidate
