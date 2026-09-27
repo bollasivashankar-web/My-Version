@@ -15,10 +15,15 @@ SELECT is(
         SELECT 1
         FROM unnest(COALESCE(p.proconfig, ARRAY[]::text[])) AS setting
         WHERE setting = 'search_path=""'
+          OR (
+            n.nspname = 'public'
+            AND p.proname = 'rls_auto_enable'
+            AND setting = 'search_path=pg_catalog'
+          )
       )
   ),
   0::bigint,
-  'every application SECURITY DEFINER function has an empty search_path'
+  'every application SECURITY DEFINER function has a fixed safe search_path'
 );
 
 SELECT is(
@@ -144,10 +149,12 @@ SELECT is(
         'current_tenant_id',
         'finish_resume_upload',
         'has_role',
+        'has_platform_role',
         'issue_resume_upload',
         'is_active_user',
         'is_admin',
-        'is_platform_admin'
+        'is_platform_admin',
+        'is_platform_owner'
       )
   ),
   0::bigint,

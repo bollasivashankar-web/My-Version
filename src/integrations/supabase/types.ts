@@ -347,6 +347,9 @@ export type Database = {
           currency: string;
           current_employer: string | null;
           current_title: string | null;
+          required_job: string | null;
+          ready_to_relocate: boolean | null;
+          preferred_location: string | null;
           email: string | null;
           experience_years: number | null;
           first_name: string;
@@ -378,6 +381,9 @@ export type Database = {
           currency?: string;
           current_employer?: string | null;
           current_title?: string | null;
+          required_job?: string | null;
+          ready_to_relocate?: boolean | null;
+          preferred_location?: string | null;
           email?: string | null;
           experience_years?: number | null;
           first_name: string;
@@ -409,6 +415,9 @@ export type Database = {
           currency?: string;
           current_employer?: string | null;
           current_title?: string | null;
+          required_job?: string | null;
+          ready_to_relocate?: boolean | null;
+          preferred_location?: string | null;
           email?: string | null;
           experience_years?: number | null;
           first_name?: string;
@@ -439,6 +448,33 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      contact_us: {
+        Row: {
+          created_at: string;
+          description: string;
+          email: string;
+          id: string;
+          name: string;
+          phone_number: string;
+        };
+        Insert: {
+          created_at?: string;
+          description: string;
+          email: string;
+          id?: string;
+          name: string;
+          phone_number: string;
+        };
+        Update: {
+          created_at?: string;
+          description?: string;
+          email?: string;
+          id?: string;
+          name?: string;
+          phone_number?: string;
+        };
+        Relationships: [];
       };
       clients: {
         Row: {
@@ -516,6 +552,51 @@ export type Database = {
             columns: ["tenant_id"];
             isOneToOne: false;
             referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      copilot_messages: {
+        Row: {
+          content: string;
+          created_at: string;
+          id: string;
+          role: string;
+          sources: Json;
+          tenant_id: string;
+          user_id: string;
+        };
+        Insert: {
+          content: string;
+          created_at?: string;
+          id?: string;
+          role: string;
+          sources?: Json;
+          tenant_id?: string;
+          user_id?: string;
+        };
+        Update: {
+          content?: string;
+          created_at?: string;
+          id?: string;
+          role?: string;
+          sources?: Json;
+          tenant_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "copilot_messages_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "copilot_messages_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -1333,46 +1414,70 @@ export type Database = {
       };
       tenants: {
         Row: {
+          admin_contact_email: string | null;
+          admin_contact_name: string | null;
+          admin_contact_phone: string | null;
+          company_address: string | null;
           created_at: string;
           id: string;
           industry: string | null;
           logo_url: string | null;
           name: string;
+          owner_contact_email: string | null;
+          owner_contact_name: string | null;
+          owner_contact_phone: string | null;
           plan: Database["public"]["Enums"]["tenant_plan"];
           primary_contact_email: string | null;
           seat_limit: number;
           slug: string;
           status: Database["public"]["Enums"]["tenant_status"];
+          tax_id: string | null;
           trial_ends_at: string | null;
           updated_at: string;
           website: string | null;
         };
         Insert: {
+          admin_contact_email?: string | null;
+          admin_contact_name?: string | null;
+          admin_contact_phone?: string | null;
+          company_address?: string | null;
           created_at?: string;
           id?: string;
           industry?: string | null;
           logo_url?: string | null;
           name: string;
+          owner_contact_email?: string | null;
+          owner_contact_name?: string | null;
+          owner_contact_phone?: string | null;
           plan?: Database["public"]["Enums"]["tenant_plan"];
           primary_contact_email?: string | null;
           seat_limit?: number;
           slug: string;
           status?: Database["public"]["Enums"]["tenant_status"];
+          tax_id?: string | null;
           trial_ends_at?: string | null;
           updated_at?: string;
           website?: string | null;
         };
         Update: {
+          admin_contact_email?: string | null;
+          admin_contact_name?: string | null;
+          admin_contact_phone?: string | null;
+          company_address?: string | null;
           created_at?: string;
           id?: string;
           industry?: string | null;
           logo_url?: string | null;
           name?: string;
+          owner_contact_email?: string | null;
+          owner_contact_name?: string | null;
+          owner_contact_phone?: string | null;
           plan?: Database["public"]["Enums"]["tenant_plan"];
           primary_contact_email?: string | null;
           seat_limit?: number;
           slug?: string;
           status?: Database["public"]["Enums"]["tenant_status"];
+          tax_id?: string | null;
           trial_ends_at?: string | null;
           updated_at?: string;
           website?: string | null;
@@ -1407,10 +1512,12 @@ export type Database = {
           contact_email: string | null;
           contact_name: string | null;
           contact_phone: string | null;
+          contact_role: string | null;
           country: string | null;
           created_at: string;
           created_by: string | null;
           id: string;
+          linkedin_id: string | null;
           msa_signed_at: string | null;
           name: string;
           notes: string | null;
@@ -1430,10 +1537,12 @@ export type Database = {
           contact_email?: string | null;
           contact_name?: string | null;
           contact_phone?: string | null;
+          contact_role?: string | null;
           country?: string | null;
           created_at?: string;
           created_by?: string | null;
           id?: string;
+          linkedin_id?: string | null;
           msa_signed_at?: string | null;
           name: string;
           notes?: string | null;
@@ -1453,10 +1562,12 @@ export type Database = {
           contact_email?: string | null;
           contact_name?: string | null;
           contact_phone?: string | null;
+          contact_role?: string | null;
           country?: string | null;
           created_at?: string;
           created_by?: string | null;
           id?: string;
+          linkedin_id?: string | null;
           msa_signed_at?: string | null;
           name?: string;
           notes?: string | null;
@@ -1585,6 +1696,7 @@ export type Database = {
         }[];
       };
       dashboard_overview: { Args: never; Returns: Json };
+      platform_console_overview: { Args: never; Returns: Json };
       current_tenant_id: { Args: never; Returns: string };
       fail_candidate_embedding_job: {
         Args: { _error: string; _job_id: string };
@@ -1632,6 +1744,13 @@ export type Database = {
           candidate_id: string;
           similarity: number;
         }[];
+      };
+      set_user_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"];
+          _user_id: string;
+        };
+        Returns: undefined;
       };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };

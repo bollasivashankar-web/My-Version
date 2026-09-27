@@ -1,9 +1,11 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
 
 import { AppSidebar } from "@/components/app-shell/sidebar";
 import { CopilotDrawer } from "@/components/ai/copilot-drawer";
 import { useSession } from "@/hooks/use-session";
-import { supabase } from "@/integrations/supabase/client";
+import { useProfile } from "@/hooks/use-profile";
+import { canAccessPath } from "@/lib/feature-access";
 
 /**
  * ============================================================================
@@ -97,85 +99,6 @@ export const Route = createFileRoute("/_authenticated")({
    */
   ssr: false,
 
-  /**
-   * --------------------------------------------------------------------------
-   * Authentication guard
-   * --------------------------------------------------------------------------
-   *
-   * Supabase Auth is the source of truth for whether a user is authenticated.
-   */
-  beforeLoad: async ({ location }) => {
-    try {
-      /**
-       * Ask Supabase Auth for the currently authenticated user.
-       *
-       * Application-managed identity caches are never consulted here.
-       */
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-
-      /**
-       * No valid Supabase user means the browser is not authenticated.
-       *
-       * Fail closed.
-       */
-      if (error || !user) {
-        const requestedPath = `${location.pathname}` + `${location.search}` + `${location.hash}`;
-
-        throw redirect({
-          to: AUTH_ROUTE,
-
-          /**
-           * Preserve the page the user originally requested.
-           *
-           * The /auth route should validate this redirect before navigating.
-           */
-          search: {
-            redirect: getSafeRedirect(requestedPath),
-          },
-        });
-      }
-
-      /**
-       * Return only the authenticated Supabase user.
-       *
-       * Do NOT manufacture:
-       *
-       *     roleLevel
-       *     roles
-       *     tenantId
-       *     isPlatformStaff
-       *
-       * here.
-       *
-       * Those values belong to the database/server authorization layer.
-       */
-      return {
-        authUser: user,
-      };
-    } catch (error) {
-      /**
-       * TanStack Router redirects are control-flow exceptions.
-       *
-       * Re-throw them instead of converting them into another error.
-       */
-      if (error && typeof error === "object" && "isRedirect" in error) {
-        throw error;
-      }
-
-      /**
-       * An unexpected authentication failure must fail closed.
-       */
-      console.error("[AuthenticatedRoute] Authentication check failed:", error);
-
-      throw redirect({
-        to: AUTH_ROUTE,
-      });
-    }
-  },
-
   component: AuthenticatedLayout,
 });
 
@@ -186,7 +109,38 @@ export const Route = createFileRoute("/_authenticated")({
  */
 
 function AuthenticatedLayout() {
-  const { isSigningOut } = useSession();
+  const { user, ready, isSigningOut } = useSession();
+  const profileQuery = useProfile();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const redirectStarted = useRef(false);
+
+  useEffect(() => {
+    if (!ready || user || isSigningOut || redirectStarted.current) return;
+
+    redirectStarted.current = true;
+
+    void navigate({
+      to: AUTH_ROUTE,
+      search: { redirect: getSafeRedirect(location.href) },
+      replace: true,
+    });
+  }, [isSigningOut, location.href, navigate, ready, user]);
+
+  const denied =
+    Boolean(profileQuery.data) &&
+    !canAccessPath(
+      {
+        roles: profileQuery.data?.roles ?? [],
+        platformRole: profileQuery.data?.platformRole ?? null,
+      },
+      location.pathname,
+    );
+
+  useEffect(() => {
+    if (!denied || location.pathname === "/forbidden") return;
+    void navigate({ to: "/forbidden", replace: true });
+  }, [denied, location.pathname, navigate]);
 
   /**
    * While Supabase sign-out is being processed, don't render the
@@ -194,14 +148,34 @@ function AuthenticatedLayout() {
    *
    * This prevents a brief flash of protected UI during logout.
    */
-  if (isSigningOut) {
+  if (!ready || !user || isSigningOut || profileQuery.isPending || denied) {
     return (
       <div
         className="flex min-h-screen items-center justify-center bg-background"
         aria-live="polite"
         aria-busy="true"
       >
-        <span className="text-sm text-muted-foreground">Signing out...</span>
+        <span className="text-sm text-muted-foreground">
+          {isSigningOut
+            ? "Signing out..."
+            : profileQuery.isPending || denied
+              ? "Checking access..."
+              : "Verifying session..."}
+        </span>
+      </div>
+    );
+  }
+
+  if (profileQuery.isError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="max-w-md text-center">
+          <h1 className="text-lg font-semibold">Unable to verify account access</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Refresh the page or sign in again. Protected content is not shown when role verification
+            fails.
+          </p>
+        </div>
       </div>
     );
   }

@@ -84,8 +84,8 @@ test("a user can never modify their own authorization state", () => {
   );
 });
 
-test("admin cannot promote a recruiter to admin or super admin", () => {
-  for (const assignedRole of ["admin", "super_admin"] as const) {
+test("admin cannot promote a recruiter to a privileged administrator role", () => {
+  for (const assignedRole of ["admin", "super_admin", "developer_admin"] as const) {
     assert.throws(
       () =>
         assertCanManageUser({

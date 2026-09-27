@@ -88,7 +88,12 @@ const EMPTY: RequirementFormValues = {
 
 type Lookups = {
   clients: { id: string; name: string }[];
-  vendors: { id: string; name: string }[];
+  vendors: {
+    id: string;
+    name: string;
+    contact_email: string | null;
+    contact_phone: string | null;
+  }[];
   recruiters: { id: string; full_name: string | null; email: string; is_active: boolean }[];
 };
 
@@ -212,9 +217,8 @@ export function RequirementForm({
                 setV({
                   ...v,
                   vendor_id: id,
-                  vendor_email:
-                    v.vendor_email || (found as any)?.email || "account@apexstaffing.io",
-                  vendor_contact: v.vendor_contact || (found as any)?.phone || "+1 (555) 234-8901",
+                  vendor_email: v.vendor_email || found?.contact_email || "",
+                  vendor_contact: v.vendor_contact || found?.contact_phone || "",
                 });
               }}
               options={lookups?.vendors ?? []}

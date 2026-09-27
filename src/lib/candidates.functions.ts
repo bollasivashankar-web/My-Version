@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireCandidatesAccess } from "@/integrations/supabase/auth-middleware";
 import type { Json } from "@/integrations/supabase/types";
 import {
   requestStructuredAiOutput,
@@ -138,6 +138,9 @@ const CandidateInputObjectSchema = z.object({
   location: z.string().trim().max(160).nullable().optional(),
   current_employer: z.string().trim().max(160).nullable().optional(),
   current_title: z.string().trim().max(160).nullable().optional(),
+  required_job: z.string().trim().max(160).nullable().optional(),
+  ready_to_relocate: z.boolean().nullable().optional(),
+  preferred_location: z.string().trim().max(160).nullable().optional(),
   primary_technology: z.string().trim().max(120).nullable().optional(),
   visa_status: z.string().trim().max(40).nullable().optional(),
   availability: z.enum(AVAILS).nullable().optional(),
@@ -205,6 +208,13 @@ function validateCandidateCrossFields(
       message: "Only one employment record may be current",
     });
   }
+  if (value.ready_to_relocate === false && !value.preferred_location?.trim()) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["preferred_location"],
+      message: "Preferred location is required when the candidate is not ready to relocate",
+    });
+  }
 }
 
 export const CandidateInputSchema = CandidateInputObjectSchema.superRefine(
@@ -231,7 +241,7 @@ const ListInputSchema = z.object({
 });
 
 export const listCandidates = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireCandidatesAccess])
   .validator((input: unknown) => ListInputSchema.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
@@ -290,14 +300,14 @@ export const listCandidates = createServerFn({ method: "POST" })
 // ============ Get one (full profile) ============
 
 export const getCandidate = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireCandidatesAccess])
   .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const { data: cand, error } = await supabase
       .from("candidates")
       .select(
-        "id, first_name, last_name, email, phone, location, current_title, current_employer, primary_technology, experience_years, visa_status, availability, status, summary, linkedin_url, github_url, portfolio_url, min_rate, max_rate, rate_type, currency, source, assigned_to, ats_score, ai_notes, created_at, updated_at",
+        "id, first_name, last_name, email, phone, location, current_title, current_employer, required_job, ready_to_relocate, preferred_location, primary_technology, experience_years, visa_status, availability, status, summary, linkedin_url, github_url, portfolio_url, min_rate, max_rate, rate_type, currency, source, assigned_to, ats_score, ai_notes, created_at, updated_at",
       )
       .eq("id", data.id)
       .maybeSingle();
@@ -545,7 +555,7 @@ async function createCandidateGraphFromResumeUpload(
 }
 
 export const createCandidate = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireCandidatesAccess])
   .validator((input: unknown) => CandidateInputSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
@@ -566,7 +576,7 @@ const UpdateSchema = CandidateInputObjectSchema.partial()
   .superRefine(validateCandidateCrossFields);
 
 export const updateCandidate = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireCandidatesAccess])
   .validator((input: unknown) => UpdateSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
@@ -655,7 +665,7 @@ export const updateCandidate = createServerFn({ method: "POST" })
   });
 
 export const deleteCandidate = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireCandidatesAccess])
   .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
@@ -762,8 +772,87 @@ const CandidateAiOutputSchema = CandidateInputObjectSchema.pick({
   certifications: true,
 }).strict();
 
+const CreateCandidateWithResumeSchema = z
+  .object({
+    candidate: CandidateInputSchema,
+    upload_id: z.string().uuid(),
+  })
+  .strict();
+
+export const createCandidateWithResume = createServerFn({ method: "POST" })
+  .middleware([requireCandidatesAccess])
+  .validator((input: unknown) => CreateCandidateWithResumeSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: authorized, error: authorizeError } = await supabase
+      .rpc("authorize_resume_upload", { _upload_id: data.upload_id })
+      .maybeSingle();
+    if (authorizeError || !authorized) {
+      throw new Error(
+        `Resume upload is invalid or expired: ${authorizeError?.message ?? "not found"}`,
+      );
+    }
+
+    const { data: blob, error: downloadError } = await supabase.storage
+      .from("resume-uploads")
+      .download(authorized.staging_path);
+    if (downloadError || !blob) {
+      throw new Error(`Failed to read uploaded resume: ${downloadError?.message ?? "not found"}`);
+    }
+
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    if (bytes.byteLength !== authorized.size_bytes) {
+      await supabase.storage.from("resume-uploads").remove([authorized.staging_path]);
+      throw new Error("Uploaded resume size does not match its server-issued grant");
+    }
+    const isPdf =
+      authorized.mime_type === "application/pdf" &&
+      bytes.length >= 5 &&
+      String.fromCharCode(...bytes.subarray(0, 5)) === "%PDF-";
+    const isDocx =
+      authorized.mime_type ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" &&
+      bytes.length >= 4 &&
+      bytes[0] === 0x50 &&
+      bytes[1] === 0x4b;
+    if (!isPdf && !isDocx) {
+      await supabase.storage.from("resume-uploads").remove([authorized.staging_path]);
+      throw new Error("Uploaded file content does not match its declared resume type");
+    }
+
+    let processedDocument: Awaited<ReturnType<typeof processDocumentInIsolatedWorker>>;
+    try {
+      processedDocument = await processDocumentInIsolatedWorker({
+        bytes,
+        mimeType: authorized.mime_type,
+      });
+    } catch (error) {
+      await supabase.storage.from("resume-uploads").remove([authorized.staging_path]);
+      throw error;
+    }
+
+    const created = await createCandidateGraphFromResumeUpload(
+      supabase,
+      data.candidate,
+      data.upload_id,
+      processedDocument.extracted_text,
+    );
+    const { error: storeError } = await supabase.storage
+      .from("resumes")
+      .upload(created.resume_path, blob, {
+        contentType: authorized.mime_type,
+        upsert: false,
+      });
+    if (storeError) {
+      throw new Error(`Candidate was created but resume storage failed: ${storeError.message}`);
+    }
+
+    await supabase.storage.from("resume-uploads").remove([authorized.staging_path]);
+    return { id: created.candidate_id };
+  });
+
 export const parseAndCreateCandidate = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireCandidatesAccess])
   .validator((input: unknown) => ParseResumeSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
@@ -922,7 +1011,7 @@ export const parseAndCreateCandidate = createServerFn({ method: "POST" })
 
 // ============ Signed URL for resume download ============
 export const getResumeSignedUrl = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireCandidatesAccess])
   .validator((input: unknown) =>
     z
       .object({
@@ -986,7 +1075,7 @@ export const getResumeSignedUrl = createServerFn({ method: "POST" })
 
 // ============ Semantic search over candidates ============
 export const semanticSearchCandidates = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireCandidatesAccess])
   .validator((input: unknown) =>
     z
       .object({
@@ -1036,7 +1125,7 @@ export const semanticSearchCandidates = createServerFn({ method: "POST" })
 
 // ============ Re-embed a requirement (called on demand) ============
 export const embedRequirement = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireCandidatesAccess])
   .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;

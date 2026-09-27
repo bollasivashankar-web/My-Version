@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireDashboardAccess } from "@/integrations/supabase/auth-middleware";
 
 const CountSchema = z.number().int().nonnegative();
 const NamedCountSchema = z
@@ -112,7 +112,7 @@ export type DashboardOverview = z.infer<typeof DashboardOverviewSchema>;
  * tenant-scoped RPC. No business rows are transferred to Node for counting.
  */
 export const getDashboardOverview = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireDashboardAccess])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase.rpc("dashboard_overview");
     if (error) throw new Error(`Unable to load dashboard overview: ${error.message}`);
@@ -121,7 +121,7 @@ export const getDashboardOverview = createServerFn({ method: "GET" })
   });
 
 export const getRecentActivity = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireDashboardAccess])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("audit_logs")

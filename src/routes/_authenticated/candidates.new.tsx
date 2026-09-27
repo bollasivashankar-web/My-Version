@@ -15,8 +15,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, User, Sparkles, Loader2 } from "lucide-react";
-import { createCandidate } from "@/lib/candidates.functions";
+import { ArrowLeft, User, Sparkles, Loader2, FileUp } from "lucide-react";
+import {
+  createCandidate,
+  createCandidateResumeUpload,
+  createCandidateWithResume,
+} from "@/lib/candidates.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/candidates/new")({
   head: () => ({ meta: [{ title: "Add New Candidate — Staffinix" }] }),
@@ -29,7 +34,7 @@ function NewCandidatePage() {
   return (
     <>
       <AppTopbar title="Add New Candidate" />
-      <main className="flex-1 space-y-6 p-6 md:p-8 w-full max-w-2xl mx-auto flex flex-col items-center">
+      <main className="flex-1 space-y-6 p-6 md:p-8 w-full max-w-4xl mx-auto flex flex-col items-center">
         <div className="flex items-center gap-2 w-full">
           <Button variant="ghost" size="sm" asChild>
             <Link to="/candidates">
@@ -56,19 +61,29 @@ function CandidateFormCard({ onCreated }: { onCreated: () => void }) {
   const [last, setLast] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [jobRole, setJobRole] = useState("");
+  const [currentJob, setCurrentJob] = useState("");
+  const [requiredJob, setRequiredJob] = useState("");
   const [techSkills, setTechSkills] = useState("");
   const [expYears, setExpYears] = useState("");
   const [location, setLocation] = useState("");
   const [visa, setVisa] = useState("H1B");
   const [availability, setAvailability] = useState("immediate");
+  const [readyToRelocate, setReadyToRelocate] = useState("yes");
+  const [preferredLocation, setPreferredLocation] = useState("");
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const createFn = useServerFn(createCandidate);
+  const createWithResumeFn = useServerFn(createCandidateWithResume);
+  const createUploadFn = useServerFn(createCandidateResumeUpload);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!first.trim() || !last.trim()) {
-      toast.error("First Name and Last Name are required!");
+    if (!first.trim() || !last.trim() || !currentJob.trim() || !requiredJob.trim()) {
+      toast.error("First name, last name, current job, and required job are required.");
+      return;
+    }
+    if (readyToRelocate === "no" && !preferredLocation.trim()) {
+      toast.error("Enter a preferred location when the candidate is not ready to relocate.");
       return;
     }
 
@@ -80,36 +95,74 @@ function CandidateFormCard({ onCreated }: { onCreated: () => void }) {
       .filter(Boolean);
 
     try {
-      await createFn({
-        data: {
-          first_name: first.trim(),
-          last_name: last.trim(),
-          email: email.trim() || null,
-          phone: phone.trim() || null,
-          current_title: jobRole.trim() || null,
-          primary_technology: skillsArray[0] ?? null,
-          visa_status: visa || null,
-          experience_years: expYears ? Number(expYears) : null,
-          location: location.trim() || null,
-          availability: availability as "immediate" | "two_weeks" | "one_month" | "negotiable",
-          status: "active",
-          source: "manual",
-          skills: skillsArray.map((skill, index) => ({
-            skill,
-            is_primary: index === 0,
-          })),
-          employment: [],
-          education: [],
-          projects: [],
-          certifications: [],
-        },
-      });
-      setIsSubmitting(false);
+      const candidate = {
+        first_name: first.trim(),
+        last_name: last.trim(),
+        email: email.trim() || null,
+        phone: phone.trim() || null,
+        current_title: currentJob.trim(),
+        required_job: requiredJob.trim(),
+        ready_to_relocate: readyToRelocate === "yes",
+        preferred_location: readyToRelocate === "no" ? preferredLocation.trim() : null,
+        primary_technology: skillsArray[0] ?? null,
+        visa_status: visa || null,
+        experience_years: expYears ? Number(expYears) : null,
+        location: location.trim() || null,
+        availability: availability as "immediate" | "two_weeks" | "one_month" | "negotiable",
+        status: "active" as const,
+        source: "manual" as const,
+        currency: "USD",
+        skills: skillsArray.map((skill, index) => ({
+          skill,
+          is_primary: index === 0,
+        })),
+        employment: [],
+        education: [],
+        projects: [],
+        certifications: [],
+      };
+
+      if (resumeFile) {
+        if (resumeFile.size < 1 || resumeFile.size > 10 * 1024 * 1024) {
+          throw new Error("Resume must be between 1 byte and 10 MiB.");
+        }
+        const lowerName = resumeFile.name.toLowerCase();
+        const mimeType = lowerName.endsWith(".pdf")
+          ? "application/pdf"
+          : lowerName.endsWith(".docx")
+            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            : null;
+        if (!mimeType) throw new Error("Resume must be a PDF or DOCX file.");
+
+        const grant = await createUploadFn({
+          data: {
+            file_name: resumeFile.name,
+            mime_type: mimeType,
+            size_bytes: resumeFile.size,
+          },
+        });
+        const { error: uploadError } = await supabase.storage
+          .from("resume-uploads")
+          .uploadToSignedUrl(grant.path, grant.token, resumeFile, { contentType: mimeType });
+        if (uploadError) throw new Error(`Resume upload failed: ${uploadError.message}`);
+
+        await createWithResumeFn({
+          data: { candidate, upload_id: grant.upload_id },
+        });
+      } else {
+        await createFn({ data: candidate });
+      }
+
       toast.success("Bench candidate added!");
       onCreated();
-    } catch {
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Candidate could not be saved. Please review the form and try again.",
+      );
+    } finally {
       setIsSubmitting(false);
-      toast.error("Candidate could not be saved. Please review the form and try again.");
     }
   }
 
@@ -173,26 +226,38 @@ function CandidateFormCard({ onCreated }: { onCreated: () => void }) {
             </div>
           </div>
 
-          {/* Job Role & Tech/Skills */}
+          {/* Current and required jobs */}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Job Role *</Label>
+              <Label className="text-xs font-semibold">Current Job *</Label>
               <Input
-                value={jobRole}
-                onChange={(e) => setJobRole(e.target.value)}
+                value={currentJob}
+                onChange={(e) => setCurrentJob(e.target.value)}
                 placeholder="e.g. Senior Full Stack Developer"
+                required
                 className="text-xs"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Tech / Skills (Comma-separated)</Label>
+              <Label className="text-xs font-semibold">Required Job *</Label>
               <Input
-                value={techSkills}
-                onChange={(e) => setTechSkills(e.target.value)}
-                placeholder="e.g. React, TypeScript, Node.js, GraphQL"
+                value={requiredJob}
+                onChange={(e) => setRequiredJob(e.target.value)}
+                placeholder="e.g. Engineering Lead"
+                required
                 className="text-xs"
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Tech / Skills (Comma-separated)</Label>
+            <Input
+              value={techSkills}
+              onChange={(e) => setTechSkills(e.target.value)}
+              placeholder="e.g. React, TypeScript, Node.js, GraphQL"
+              className="text-xs"
+            />
           </div>
 
           {/* Years of Experience & Location */}
@@ -215,6 +280,59 @@ function CandidateFormCard({ onCreated }: { onCreated: () => void }) {
                 placeholder="e.g. Jersey City, NJ"
                 className="text-xs"
               />
+            </div>
+          </div>
+
+          {/* Relocation preference */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Ready to Relocate? *</Label>
+              <Select value={readyToRelocate} onValueChange={setReadyToRelocate}>
+                <SelectTrigger className="text-xs">
+                  <SelectValue placeholder="Select relocation preference" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="yes">Yes</SelectItem>
+                  <SelectItem value="no">No</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {readyToRelocate === "no" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Preferred Location *</Label>
+                <Input
+                  value={preferredLocation}
+                  onChange={(e) => setPreferredLocation(e.target.value)}
+                  placeholder="e.g. Dallas, TX or Remote"
+                  required
+                  className="text-xs"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Resume upload */}
+          <div className="space-y-1.5">
+            <Label htmlFor="candidate-resume" className="text-xs font-semibold">
+              Upload Resume
+            </Label>
+            <div className="rounded-md border border-dashed border-border p-4">
+              <div className="flex items-center gap-3">
+                <FileUp className="h-5 w-5 text-primary" />
+                <Input
+                  id="candidate-resume"
+                  type="file"
+                  accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
+                  onChange={(event) => setResumeFile(event.target.files?.[0] ?? null)}
+                  className="text-xs"
+                />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                PDF or DOCX, up to 10 MiB.
+                {resumeFile
+                  ? ` Selected: ${resumeFile.name} (${(resumeFile.size / 1024).toFixed(0)} KB)`
+                  : ""}
+              </p>
             </div>
           </div>
 

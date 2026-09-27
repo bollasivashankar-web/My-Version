@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET search_path = public, extensions;
-SELECT plan(8);
+SELECT plan(10);
 
 INSERT INTO public.tenants (id, name, slug)
 VALUES ('91000000-0000-0000-0000-000000000001', 'Authorization Test', 'authorization-test');
@@ -34,6 +34,22 @@ SELECT is(
   (SELECT count(*) FROM public.user_roles WHERE user_id = '91000000-0000-0000-0000-000000000020'),
   0::bigint,
   'signup creates no implicit application role'
+);
+
+SELECT ok(
+  EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = '91000000-0000-0000-0000-000000000020'
+      AND is_active = true
+  ),
+  'signup creates an active application identity profile'
+);
+
+SELECT is(
+  (SELECT tenant_id FROM public.profiles WHERE id = '91000000-0000-0000-0000-000000000020'),
+  NULL::uuid,
+  'signup does not assign a tenant implicitly'
 );
 
 SELECT ok(

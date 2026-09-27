@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireInterviewsAccess } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const ROUNDS = ["screen", "l1", "l2", "manager", "client", "technical", "final", "other"] as const;
@@ -31,7 +31,7 @@ const InterviewInputSchema = z.object({
 
 // list — optional filter by submission_id or upcoming
 export const listInterviews = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireInterviewsAccess])
   .validator((i: unknown) =>
     z
       .object({
@@ -70,7 +70,7 @@ export const listInterviews = createServerFn({ method: "POST" })
   });
 
 export const scheduleInterview = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireInterviewsAccess])
   .validator((i: unknown) => InterviewInputSchema.parse(i))
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
@@ -107,7 +107,7 @@ export const scheduleInterview = createServerFn({ method: "POST" })
   });
 
 export const updateInterview = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireInterviewsAccess])
   .validator((i: unknown) =>
     z
       .object({
@@ -143,7 +143,7 @@ export const updateInterview = createServerFn({ method: "POST" })
   });
 
 export const deleteInterview = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireInterviewsAccess])
   .validator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase } = context;

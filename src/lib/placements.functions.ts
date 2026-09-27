@@ -1,12 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requirePlacementsAccess } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const STATUSES = ["active", "ended", "terminated", "extended"] as const;
 const RATE_TYPES = ["hourly", "annual", "monthly"] as const;
 
 export const listPlacements = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requirePlacementsAccess])
   .validator((i: unknown) =>
     z
       .object({
@@ -41,7 +41,7 @@ export const listPlacements = createServerFn({ method: "POST" })
   });
 
 export const updatePlacement = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requirePlacementsAccess])
   .validator((i: unknown) =>
     z
       .object({

@@ -14,10 +14,13 @@ function runJob(bytes, mimeType = PDF_MIME) {
       workerData: { bytes: isolated.buffer, mimeType },
       transferList: [isolated.buffer],
     });
+    // The production worker enforces an 8-second job deadline. Keep the test
+    // harness above that boundary so a loaded CI runner does not fail before
+    // the behavior under test has a chance to report its own result.
     const timer = setTimeout(() => {
       void worker.terminate();
       reject(new Error("test worker timed out"));
-    }, 5_000);
+    }, 12_000);
     worker.once("message", (message) => {
       clearTimeout(timer);
       void worker.terminate();

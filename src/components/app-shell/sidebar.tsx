@@ -10,105 +10,95 @@ import {
   Crown,
   Code2,
   Wand2,
-  Mail,
   KanbanSquare,
   Sparkles,
   UserRound,
   ScrollText,
-  Settings,
   ShieldCheck,
+  CalendarClock,
 } from "lucide-react";
 import { StaffinixLogo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { useTenancy } from "@/hooks/use-tenancy";
-import { useRoleLevel } from "@/hooks/use-role-level";
+import { canAccessFeature, type Feature, type FeatureAccessIdentity } from "@/lib/feature-access";
 
 type NavItem = {
   to: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  feature: Feature;
 };
+
+const NAV_GROUPS: ReadonlyArray<{ section: string; items: readonly NavItem[] }> = [
+  {
+    section: "Workspace",
+    items: [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, feature: "dashboard" }],
+  },
+  {
+    section: "Talent Operations",
+    items: [
+      { to: "/requirements", label: "Requisitions", icon: FileText, feature: "requirements" },
+      { to: "/candidates", label: "Candidates", icon: Users, feature: "candidates" },
+      { to: "/matching", label: "AI Matching", icon: Sparkles, feature: "matching" },
+      { to: "/tailoring", label: "Resume Tailoring", icon: Wand2, feature: "tailoring" },
+      {
+        to: "/submissions/board",
+        label: "Pipeline Tracker",
+        icon: KanbanSquare,
+        feature: "submissions",
+      },
+      { to: "/interviews", label: "Interviews", icon: CalendarClock, feature: "interviews" },
+    ],
+  },
+  {
+    section: "Relationships & Delivery",
+    items: [
+      { to: "/clients", label: "Client Accounts", icon: Building2, feature: "clients" },
+      { to: "/vendors", label: "Vendors", icon: Handshake, feature: "vendors" },
+      { to: "/placements", label: "Placements & Revenue", icon: Trophy, feature: "placements" },
+      { to: "/recruiters", label: "Recruiter Team", icon: UsersRound, feature: "recruiters" },
+    ],
+  },
+  {
+    section: "Administration",
+    items: [
+      { to: "/users", label: "Company Team", icon: UserRound, feature: "users" },
+      { to: "/audit", label: "Audit Logs", icon: ScrollText, feature: "audit" },
+      { to: "/developer", label: "Dev Console & APIs", icon: Code2, feature: "developer" },
+      { to: "/architecture", label: "Architecture", icon: ShieldCheck, feature: "developer" },
+    ],
+  },
+  {
+    section: "SaaS Administration",
+    items: [
+      { to: "/platform", label: "Platform Console", icon: Crown, feature: "platform" },
+      {
+        to: "/tenants/new",
+        label: "New Tenant Registration",
+        icon: Building2,
+        feature: "platform",
+      },
+    ],
+  },
+];
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data } = useProfile();
   const { data: tenancy } = useTenancy();
-  const { level } = useRoleLevel();
-
-  // L1 — Platform Owner (Staffinix SaaS Admin)
-  const l1Items: { section: string; items: NavItem[] }[] = [
-    {
-      section: "SaaS Administration",
-      items: [
-        { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { to: "/platform", label: "Platform Console", icon: Crown },
-        { to: "/tenants/new", label: "New Tenant Registration", icon: Building2 },
-        { to: "/audit", label: "Audit Logs", icon: ScrollText },
-      ],
-    },
-  ];
-
-  // L2 — Company Super Admin (Client Organization Executive / VP)
-  const l2Items: { section: string; items: NavItem[] }[] = [
-    {
-      section: "Executive Workspace",
-      items: [
-        { to: "/dashboard", label: "Executive Dashboard", icon: LayoutDashboard },
-        { to: "/placements", label: "Placements & Revenue", icon: Trophy },
-        { to: "/clients", label: "Client Accounts", icon: Building2 },
-        { to: "/vendors", label: "Vendors", icon: Handshake },
-        { to: "/users", label: "Company Team", icon: UserRound },
-        { to: "/audit", label: "Audit Logs", icon: ScrollText },
-      ],
-    },
-  ];
-
-  // L3 — Dev Admin / Technical Lead
-  const l3Items: { section: string; items: NavItem[] }[] = [
-    {
-      section: "Developer Console",
-      items: [
-        { to: "/developer", label: "Dev Console & APIs", icon: Code2 },
-        { to: "/access-request", label: "Recruiter Approvals", icon: Crown },
-      ],
-    },
-  ];
-
-  // L4 — Client Recruiter (Individual Contributor)
-  const l4Items: { section: string; items: NavItem[] }[] = [
-    {
-      section: "Recruiter Desk",
-      items: [
-        { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { to: "/requirements", label: "Requisitions", icon: FileText },
-        { to: "/candidates", label: "Bench Candidates", icon: Users },
-        { to: "/matching", label: "AI Matching", icon: Sparkles },
-        { to: "/tailoring", label: "Resume Tailoring", icon: Wand2 },
-        { to: "/submissions/board", label: "Pipeline Tracker", icon: KanbanSquare },
-        { to: "/vendors", label: "Vendors", icon: Handshake },
-        { to: "/access-request", label: "Request Access", icon: Crown },
-      ],
-    },
-  ];
-
-  const unprovisionedItems: { section: string; items: NavItem[] }[] = [
-    {
-      section: "Account",
-      items: [{ to: "/access-request", label: "Request Access", icon: Crown }],
-    },
-  ];
-
-  const currentNavGroups =
-    level === "L1"
-      ? l1Items
-      : level === "L2"
-        ? l2Items
-        : level === "L3"
-          ? l3Items
-          : level === "L4"
-            ? l4Items
-            : unprovisionedItems;
+  const level = data?.level ?? null;
+  const identity: FeatureAccessIdentity = {
+    roles: data?.roles ?? [],
+    platformRole: data?.platformRole ?? null,
+  };
+  const currentNavGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => canAccessFeature(identity, item.feature)),
+  })).filter((group) => group.items.length > 0);
+  const isPlatformApprover =
+    data?.platformRole === "platform_owner" || data?.platformRole === "platform_admin";
+  const isUnprovisioned = identity.roles.length === 0 && !identity.platformRole;
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex h-screen sticky top-0 overflow-hidden">
@@ -125,6 +115,20 @@ export function AppSidebar() {
             pathname={pathname}
           />
         ))}
+        {(isPlatformApprover || isUnprovisioned) && (
+          <NavGroup
+            title="Access"
+            items={[
+              {
+                to: "/access-request",
+                label: isPlatformApprover ? "Platform Access Requests" : "Request Access",
+                icon: Crown,
+                feature: "dashboard",
+              },
+            ]}
+            pathname={pathname}
+          />
+        )}
       </nav>
 
       <div className="border-t border-sidebar-border p-3 space-y-2">
@@ -158,15 +162,7 @@ export function AppSidebar() {
             </span>
           </div>
           <div className="mt-1.5 text-center text-[9px] text-sidebar-foreground/60 font-mono">
-            {level === "L1"
-              ? "SaaS Owner"
-              : level === "L2"
-                ? "Exec VP / Admin"
-                : level === "L3"
-                  ? "Dev Lead"
-                  : level === "L4"
-                    ? "Recruiter Desk"
-                    : "Awaiting role assignment"}
+            {data?.roleTitle ?? "Awaiting role assignment"}
           </div>
         </div>
       </div>

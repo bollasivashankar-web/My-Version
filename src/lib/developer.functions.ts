@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireDeveloperAccess } from "@/integrations/supabase/auth-middleware";
+import type { SupabaseAuthContext } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 async function sha256(value: string) {
@@ -25,13 +26,13 @@ const WorkflowSchema = z.object({
     .refine((value) => !value || value.startsWith("https://"), "Webhook URL must use HTTPS."),
 });
 
-async function requireAdmin(context: { supabase: any; userId: string }) {
+async function requireAdmin(context: SupabaseAuthContext) {
   const { requireDeveloperAdmin: check } = await import("@/lib/rbac.server");
   await check(context.supabase, context.userId);
 }
 
 export const getDeveloperConfig = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireDeveloperAccess])
   .handler(async ({ context }) => {
     await requireAdmin(context);
     const { data: keys, error: keysError } = await context.supabase
@@ -54,7 +55,7 @@ export const getDeveloperConfig = createServerFn({ method: "GET" })
   });
 
 export const createApiKey = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireDeveloperAccess])
   .validator((i: unknown) =>
     z
       .object({
@@ -105,7 +106,7 @@ export const createApiKey = createServerFn({ method: "POST" })
   });
 
 export const revokeApiKey = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireDeveloperAccess])
   .validator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
@@ -121,7 +122,7 @@ export const revokeApiKey = createServerFn({ method: "POST" })
   });
 
 export const updateWorkflowSettings = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireDeveloperAccess])
   .validator((i: unknown) => WorkflowSchema.parse(i))
   .handler(async ({ data, context }) => {
     await requireAdmin(context);

@@ -82,7 +82,9 @@ export function assertCanManageUser(input: {
   }
   if (
     input.assignedRole &&
-    (input.assignedRole === "admin" || input.assignedRole === "super_admin") &&
+    (input.assignedRole === "admin" ||
+      input.assignedRole === "super_admin" ||
+      input.assignedRole === "developer_admin") &&
     !input.actor.roles.includes("super_admin")
   ) {
     throw new ForbiddenError("Only super administrators can assign administrator roles.");

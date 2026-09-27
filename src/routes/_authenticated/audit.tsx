@@ -17,11 +17,22 @@ export const Route = createFileRoute("/_authenticated/audit")({
   component: AuditPage,
 });
 
-function formatAuditItem(a: any) {
-  if (a.metadata?.title && a.metadata?.description) {
+type AuditLog = Awaited<ReturnType<typeof getRecentActivity>>[number] & {
+  details?: string | null;
+};
+
+function getAuditMetadata(metadata: AuditLog["metadata"]): Record<string, unknown> {
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata)
+    ? (metadata as Record<string, unknown>)
+    : {};
+}
+
+function formatAuditItem(a: AuditLog) {
+  const metadata = getAuditMetadata(a.metadata);
+  if (typeof metadata.title === "string" && typeof metadata.description === "string") {
     return {
-      title: a.metadata.title,
-      details: a.metadata.description,
+      title: metadata.title,
+      details: metadata.description,
     };
   }
   if (a.details) {
@@ -36,7 +47,7 @@ function formatAuditItem(a: any) {
   return {
     title: action.replace(/[._]/g, " ").toUpperCase() || "AUDIT LOG",
     details:
-      a.metadata?.description ||
+      (typeof metadata.description === "string" ? metadata.description : null) ||
       (entityId
         ? `Activity recorded for ${a.entity_type || "item"} #${entityId}`
         : "Activity recorded."),
@@ -118,7 +129,7 @@ function AuditPage() {
             ) : (
               <>
                 <ul className="divide-y divide-border">
-                  {displayedLogs.map((a: any) => {
+                  {displayedLogs.map((a) => {
                     const formatted = formatAuditItem(a);
                     return (
                       <li
@@ -134,7 +145,7 @@ function AuditPage() {
                               {formatted.title}
                             </Badge>
                             <span className="text-xs font-semibold text-foreground">
-                              {a.actor_name || a.actor_email}
+                              {a.actor_email || "System"}
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground">{formatted.details}</p>

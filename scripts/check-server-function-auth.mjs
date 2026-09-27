@@ -12,6 +12,20 @@ function listTypeScript(directory) {
 
 const violations = [];
 let serverFunctionCount = 0;
+const intentionallyPublicFunctions = new Set(["src/lib/contact-us.functions.ts:submitContactUs"]);
+const authMiddlewareSource = readFileSync("src/integrations/supabase/auth-middleware.ts", "utf8");
+const authenticatedMiddlewareNames = new Set([
+  "requireSupabaseAuth",
+  ...[
+    ...authMiddlewareSource.matchAll(/export const (require\w+Access) = requireFeatureAccess\(/g),
+  ].map((match) => match[1]),
+]);
+
+if (
+  !/requireFeatureAccess[\s\S]*?\.middleware\(\[requireSupabaseAuth\]\)/.test(authMiddlewareSource)
+) {
+  violations.push("Feature access middleware is not composed with Supabase authentication");
+}
 
 for (const file of listTypeScript("src")) {
   const source = readFileSync(file, "utf8");
@@ -19,10 +33,17 @@ for (const file of listTypeScript("src")) {
   for (let index = 0; index < starts.length; index += 1) {
     serverFunctionCount += 1;
     const start = starts[index];
+    const functionId = `${file.replaceAll("\\", "/")}:${start[1]}`;
     const end = starts[index + 1]?.index ?? source.length;
     const block = source.slice(start.index, end);
-    if (!block.includes(".middleware([requireSupabaseAuth])")) {
-      violations.push(`${file}:${start[1]} has no Supabase authentication middleware`);
+    const middlewareNames = [...block.matchAll(/\.middleware\(\[([^\]]*)\]\)/gs)].flatMap(
+      (match) => match[1].match(/\brequire\w+\b/g) ?? [],
+    );
+    if (
+      !intentionallyPublicFunctions.has(functionId) &&
+      !middlewareNames.some((name) => authenticatedMiddlewareNames.has(name))
+    ) {
+      violations.push(`${functionId} has no Supabase authentication middleware`);
     }
   }
 }
@@ -66,12 +87,24 @@ for (const [file, guards] of Object.entries(privilegedGuards)) {
   }
 }
 
-const middleware = readFileSync("src/integrations/supabase/auth-middleware.ts", "utf8");
-const selectsActiveProfile = /\.select\("[^"]*\bis_active\b[^"]*"\)/.test(middleware);
-const deniesInactiveProfile = middleware.includes("profile?.is_active !== true");
+const selectsActiveProfile = /\.select\("[^"]*\bis_active\b[^"]*"\)/.test(authMiddlewareSource);
+const deniesInactiveProfile = authMiddlewareSource.includes("profile?.is_active !== true");
 if (!selectsActiveProfile || !deniesInactiveProfile) {
   violations.push("Authentication middleware does not enforce active profiles");
 }
 
 assert.deepEqual(violations, [], `Server authorization violations:\n${violations.join("\n")}`);
+
+const contactUsSource = readFileSync("src/lib/contact-us.functions.ts", "utf8");
+assert.match(
+  contactUsSource,
+  /ContactUsSchema/,
+  "Contact form input must be validated on the server",
+);
+assert.match(contactUsSource, /website/, "Contact form must retain its honeypot check");
+assert.match(
+  contactUsSource,
+  /\.from\("contact_us"\)\.insert\(/,
+  "Contact form must insert into the contact_us table",
+);
 console.log(`Server authorization scan passed (${serverFunctionCount} server functions).`);

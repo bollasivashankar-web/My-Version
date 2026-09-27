@@ -53,6 +53,7 @@ export const Route = createFileRoute("/_authenticated/users")({
 const ROLES = [
   { value: "super_admin", label: "Super Admin" },
   { value: "admin", label: "Admin" },
+  { value: "developer_admin", label: "Developer Admin" },
   { value: "recruiter", label: "Recruiter" },
   { value: "account_manager", label: "Account Manager" },
   { value: "delivery_manager", label: "Delivery Manager" },
@@ -157,7 +158,12 @@ function UsersPage() {
   );
 }
 
-type UserRow = Awaited<ReturnType<typeof listUsers>>[number];
+type UserRow = Awaited<ReturnType<typeof listUsers>>[number] & {
+  open_requirements?: number;
+  submissions?: number;
+  interviews?: number;
+  placements?: number;
+};
 
 function UserRow({
   user,
@@ -202,10 +208,10 @@ function UserRow({
   const currentRole = user.roles[0];
   const isSelf = user.id === meId;
 
-  const openReqs = (user as any).open_requirements ?? 0;
-  const submissions = (user as any).submissions ?? 0;
-  const interviews = (user as any).interviews ?? 0;
-  const placements = (user as any).placements ?? 0;
+  const openReqs = user.open_requirements ?? 0;
+  const submissions = user.submissions ?? 0;
+  const interviews = user.interviews ?? 0;
+  const placements = user.placements ?? 0;
 
   return (
     <TableRow>
@@ -332,7 +338,9 @@ function InviteDialog({
   });
 
   const assignable = ROLES.filter(
-    (r) => isSuperAdmin || (r.value !== "super_admin" && r.value !== "admin"),
+    (r) =>
+      isSuperAdmin ||
+      (r.value !== "super_admin" && r.value !== "admin" && r.value !== "developer_admin"),
   );
 
   return (

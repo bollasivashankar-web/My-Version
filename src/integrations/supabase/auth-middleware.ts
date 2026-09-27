@@ -5,6 +5,7 @@ import { createClient, type JwtPayload, type User } from "@supabase/supabase-js"
 import type { Database } from "./types";
 import { extractAccessToken, UnauthorizedError } from "./auth-header";
 import { ForbiddenError } from "@/lib/authorization-policy";
+import { canAccessFeature, type Feature } from "@/lib/feature-access";
 import { assertPublishableSupabaseKey, isOpaquePublishableKey } from "./api-key-safety";
 import { setAuthenticatedRequestContext } from "@/lib/request-observability";
 
@@ -294,3 +295,56 @@ export const requireSupabaseAuth = createMiddleware({
     },
   });
 });
+
+/**
+ * Authenticates the request and authorizes a product feature from database-backed
+ * role assignments. Keeping this at the server-function boundary prevents a
+ * caller from bypassing the sidebar or route guard with a crafted request.
+ */
+export function requireFeatureAccess(feature: Feature) {
+  return createMiddleware({ type: "function" })
+    .middleware([requireSupabaseAuth])
+    .server(async ({ next, context }) => {
+      const [{ data: assignedRoles, error: rolesError }, { data: platform, error: platformError }] =
+        await Promise.all([
+          context.supabase.from("user_roles").select("role").eq("user_id", context.userId),
+          context.supabase
+            .from("platform_admins")
+            .select("role")
+            .eq("user_id", context.userId)
+            .maybeSingle(),
+        ]);
+
+      if (rolesError || platformError) {
+        throw new ForbiddenError("Unable to verify feature permissions.");
+      }
+
+      if (
+        !canAccessFeature(
+          {
+            roles: (assignedRoles ?? []).map((row) => row.role),
+            platformRole: platform?.role ?? null,
+          },
+          feature,
+        )
+      ) {
+        throw new ForbiddenError(`Your assigned role cannot access the ${feature} feature.`);
+      }
+
+      return next();
+    });
+}
+
+export const requireDashboardAccess = requireFeatureAccess("dashboard");
+export const requireCandidatesAccess = requireFeatureAccess("candidates");
+export const requireRequirementsAccess = requireFeatureAccess("requirements");
+export const requireMatchingAccess = requireFeatureAccess("matching");
+export const requireTailoringAccess = requireFeatureAccess("tailoring");
+export const requireSubmissionsAccess = requireFeatureAccess("submissions");
+export const requireInterviewsAccess = requireFeatureAccess("interviews");
+export const requireClientsAccess = requireFeatureAccess("clients");
+export const requireVendorsAccess = requireFeatureAccess("vendors");
+export const requirePlacementsAccess = requireFeatureAccess("placements");
+export const requireRecruitersAccess = requireFeatureAccess("recruiters");
+export const requireUsersAccess = requireFeatureAccess("users");
+export const requireDeveloperAccess = requireFeatureAccess("developer");

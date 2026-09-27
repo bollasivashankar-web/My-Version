@@ -1,9 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireRecruitersAccess } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 export const listRecruiters = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireRecruitersAccess])
   .handler(async ({ context }) => {
     const { data: roles, error: rolesError } = await context.supabase
       .from("user_roles")
@@ -64,7 +64,7 @@ export interface RecruiterPlacementItem {
 }
 
 export const getRecruiter = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireRecruitersAccess])
   .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { data: profile, error: profileError } = await context.supabase

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireMatchingAccess } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import {
   requestStructuredAiOutput,
@@ -13,6 +13,27 @@ const MATCH_RATIONALE_PROMPT_VERSION = "match-rationale-human-review-v1";
 // ============ Scoring helpers ============
 
 type SkillRow = { skill: string; is_mandatory?: boolean; is_primary?: boolean };
+
+type RequirementScoringInput = {
+  title?: string | null;
+  primary_technology?: string | null;
+  location?: string | null;
+  work_mode?: string | null;
+  visa_required?: string[] | string | null;
+  visa_types?: string[] | null;
+  min_experience_years?: number | null;
+  max_experience_years?: number | null;
+  skills?: Array<string | SkillRow>;
+};
+
+type CandidateScoringInput = {
+  primary_technology?: string | null;
+  location?: string | null;
+  visa_status?: string | null;
+  experience_years?: number | null;
+  semantic_similarity?: number;
+  skills?: Array<string | SkillRow>;
+};
 
 function norm(s: string) {
   return s
@@ -117,8 +138,8 @@ function weightedOverall(components: Array<{ score: number; weight: number }>) {
 }
 
 function evaluateHardConstraints(
-  req: any,
-  cand: any,
+  req: RequirementScoringInput,
+  cand: CandidateScoringInput,
   requirementSkills: SkillRow[],
   candidateSkills: SkillRow[],
 ) {
@@ -151,12 +172,15 @@ function evaluateHardConstraints(
   return { passed: reasons.length === 0, reasons, missing_mandatory_skills: missingMandatory };
 }
 
-export function computeSingleMatchScore(req: any, cand: any): number {
+export function computeSingleMatchScore(
+  req: RequirementScoringInput | null | undefined,
+  cand: CandidateScoringInput | null | undefined,
+): number {
   if (!req || !cand) return 0;
 
   const reqSkillsRows: SkillRow[] =
     req.skills && Array.isArray(req.skills)
-      ? req.skills.map((s: any) => ({
+      ? req.skills.map((s) => ({
           skill: typeof s === "string" ? s : s.skill,
           is_mandatory: typeof s === "object" ? Boolean(s.is_mandatory) : true,
         }))
@@ -211,7 +235,7 @@ export function computeSingleMatchScore(req: any, cand: any): number {
 // ============ Match candidates for a requirement ============
 
 export const matchCandidatesForRequirement = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireMatchingAccess])
   .validator((input: unknown) =>
     z
       .object({
@@ -261,7 +285,7 @@ export const matchCandidatesForRequirement = createServerFn({ method: "POST" })
       }
     }
 
-    let cands: any[] = [];
+    let cands: MatchRow["candidate"][] = [];
     const candidateSkillMap = new Map<string, SkillRow[]>();
     if (candidateIds.length) {
       const [
@@ -402,7 +426,7 @@ export type MatchRow = {
 // ============ Match requirements for a candidate ============
 
 export const matchRequirementsForCandidate = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireMatchingAccess])
   .validator((input: unknown) =>
     z
       .object({
@@ -522,7 +546,7 @@ export const matchRequirementsForCandidate = createServerFn({ method: "POST" })
 // ============ Match rationale (AI) ============
 
 export const generateMatchRationale = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireMatchingAccess])
   .validator((input: unknown) =>
     z
       .object({
@@ -532,7 +556,7 @@ export const generateMatchRationale = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId, claims } = context;
 
     const [requirementResult, candidateResult, candidateSkillsResult] = await Promise.all([
       supabase

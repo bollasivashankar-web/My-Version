@@ -19,6 +19,7 @@ import { Route as AuthenticatedPlacementsRouteImport } from './routes/_authentic
 import { Route as AuthenticatedOverviewRouteImport } from './routes/_authenticated/overview'
 import { Route as AuthenticatedMatchingRouteImport } from './routes/_authenticated/matching'
 import { Route as AuthenticatedInterviewsRouteImport } from './routes/_authenticated/interviews'
+import { Route as AuthenticatedForbiddenRouteImport } from './routes/_authenticated/forbidden'
 import { Route as AuthenticatedDeveloperRouteImport } from './routes/_authenticated/developer'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCopilotRouteImport } from './routes/_authenticated/copilot'
@@ -98,6 +99,11 @@ const AuthenticatedMatchingRoute = AuthenticatedMatchingRouteImport.update({
 const AuthenticatedInterviewsRoute = AuthenticatedInterviewsRouteImport.update({
   id: '/interviews',
   path: '/interviews',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedForbiddenRoute = AuthenticatedForbiddenRouteImport.update({
+  id: '/forbidden',
+  path: '/forbidden',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDeveloperRoute = AuthenticatedDeveloperRouteImport.update({
@@ -286,6 +292,7 @@ export interface FileRoutesByFullPath {
   '/copilot': typeof AuthenticatedCopilotRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/developer': typeof AuthenticatedDeveloperRoute
+  '/forbidden': typeof AuthenticatedForbiddenRoute
   '/interviews': typeof AuthenticatedInterviewsRoute
   '/matching': typeof AuthenticatedMatchingRoute
   '/overview': typeof AuthenticatedOverviewRoute
@@ -328,6 +335,7 @@ export interface FileRoutesByTo {
   '/copilot': typeof AuthenticatedCopilotRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/developer': typeof AuthenticatedDeveloperRoute
+  '/forbidden': typeof AuthenticatedForbiddenRoute
   '/interviews': typeof AuthenticatedInterviewsRoute
   '/matching': typeof AuthenticatedMatchingRoute
   '/overview': typeof AuthenticatedOverviewRoute
@@ -372,6 +380,7 @@ export interface FileRoutesById {
   '/_authenticated/copilot': typeof AuthenticatedCopilotRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/developer': typeof AuthenticatedDeveloperRoute
+  '/_authenticated/forbidden': typeof AuthenticatedForbiddenRoute
   '/_authenticated/interviews': typeof AuthenticatedInterviewsRoute
   '/_authenticated/matching': typeof AuthenticatedMatchingRoute
   '/_authenticated/overview': typeof AuthenticatedOverviewRoute
@@ -416,6 +425,7 @@ export interface FileRouteTypes {
     | '/copilot'
     | '/dashboard'
     | '/developer'
+    | '/forbidden'
     | '/interviews'
     | '/matching'
     | '/overview'
@@ -458,6 +468,7 @@ export interface FileRouteTypes {
     | '/copilot'
     | '/dashboard'
     | '/developer'
+    | '/forbidden'
     | '/interviews'
     | '/matching'
     | '/overview'
@@ -501,6 +512,7 @@ export interface FileRouteTypes {
     | '/_authenticated/copilot'
     | '/_authenticated/dashboard'
     | '/_authenticated/developer'
+    | '/_authenticated/forbidden'
     | '/_authenticated/interviews'
     | '/_authenticated/matching'
     | '/_authenticated/overview'
@@ -609,6 +621,13 @@ declare module '@tanstack/react-router' {
       path: '/interviews'
       fullPath: '/interviews'
       preLoaderRoute: typeof AuthenticatedInterviewsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/forbidden': {
+      id: '/_authenticated/forbidden'
+      path: '/forbidden'
+      fullPath: '/forbidden'
+      preLoaderRoute: typeof AuthenticatedForbiddenRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/developer': {
@@ -865,6 +884,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCopilotRoute: typeof AuthenticatedCopilotRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDeveloperRoute: typeof AuthenticatedDeveloperRoute
+  AuthenticatedForbiddenRoute: typeof AuthenticatedForbiddenRoute
   AuthenticatedInterviewsRoute: typeof AuthenticatedInterviewsRoute
   AuthenticatedMatchingRoute: typeof AuthenticatedMatchingRoute
   AuthenticatedOverviewRoute: typeof AuthenticatedOverviewRoute
@@ -904,6 +924,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCopilotRoute: AuthenticatedCopilotRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDeveloperRoute: AuthenticatedDeveloperRoute,
+  AuthenticatedForbiddenRoute: AuthenticatedForbiddenRoute,
   AuthenticatedInterviewsRoute: AuthenticatedInterviewsRoute,
   AuthenticatedMatchingRoute: AuthenticatedMatchingRoute,
   AuthenticatedOverviewRoute: AuthenticatedOverviewRoute,

@@ -33,3 +33,6 @@ dist-ssr
 *.sw?
 
 supabase/.temp/
+
+# Legacy local copy; the canonical application is this directory.
+My-Version/

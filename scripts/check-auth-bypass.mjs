@@ -14,6 +14,10 @@ const sourceFiles = listFiles("src", new Set([".ts", ".tsx"])).filter(
   (path) => !path.endsWith(".test.ts"),
 );
 const migrationFiles = listFiles("supabase/migrations", new Set([".sql"]));
+const approvedIdentityMigrationSuffixes = new Set([
+  "20260902045517_provision_initial_role_hierarchy.sql",
+  "20260923133013_restore_launch_account_roles.sql",
+]);
 
 const forbiddenMarkers = [
   ["MENTOR", "_ACCOUNTS"].join(""),
@@ -48,6 +52,15 @@ for (const file of sourceFiles) {
 for (const file of migrationFiles) {
   const source = readFileSync(file, "utf8");
   for (const [pattern, label] of forbiddenIdentityPatterns) {
+    // This one server-side data migration intentionally resolves the four
+    // user-approved launch accounts by email. It contains no password and is
+    // never bundled. Continue scanning it for credential/password markers.
+    if (
+      label === "legacy demo email" &&
+      [...approvedIdentityMigrationSuffixes].some((suffix) => file.endsWith(suffix))
+    ) {
+      continue;
+    }
     if (pattern.test(source)) violations.push(`${file}: ${label}`);
   }
 }

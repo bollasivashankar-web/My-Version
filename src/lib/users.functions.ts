@@ -1,12 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireUsersAccess } from "@/integrations/supabase/auth-middleware";
+import type { SupabaseAuthContext } from "@/integrations/supabase/auth-middleware";
 
 import { APP_ROLES } from "@/lib/authorization-policy";
 
 const AppRoleSchema = z.enum(APP_ROLES);
 
-async function requireAdminContext(context: any) {
+async function requireAdminContext(context: SupabaseAuthContext) {
   const { requireAdmin } = await import("@/lib/rbac.server");
   const roles = await requireAdmin(context.supabase, context.userId);
   const { data: caller, error } = await context.supabase
@@ -19,7 +20,11 @@ async function requireAdminContext(context: any) {
   return { roles, tenantId: caller.tenant_id };
 }
 
-async function targetIsSameTenant(context: any, targetUserId: string, tenantId: string) {
+async function targetIsSameTenant(
+  context: SupabaseAuthContext,
+  targetUserId: string,
+  tenantId: string,
+) {
   const { data, error } = await context.supabase
     .from("profiles")
     .select("id, tenant_id")
@@ -34,7 +39,7 @@ async function targetIsSameTenant(context: any, targetUserId: string, tenantId: 
 }
 
 export const listUsers = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireUsersAccess])
   .handler(async ({ context }) => {
     await requireAdminContext(context);
     const { data: profiles, error } = await context.supabase
@@ -68,11 +73,11 @@ const InviteSchema = z.object({
 });
 
 export const inviteUser = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireUsersAccess])
   .validator((input: unknown) => InviteSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { roles, tenantId } = await requireAdminContext(context);
-    if (data.role === "super_admin" || data.role === "admin") {
+    if (data.role === "super_admin" || data.role === "admin" || data.role === "developer_admin") {
       const { assertSuperAdmin } = await import("@/lib/authorization-policy");
       assertSuperAdmin({ active: true, tenantId, roles, platformRole: null });
     }
@@ -102,7 +107,7 @@ export const inviteUser = createServerFn({ method: "POST" })
 const UpdateRoleSchema = z.object({ user_id: z.string().uuid(), role: AppRoleSchema });
 
 export const updateUserRole = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireUsersAccess])
   .validator((input: unknown) => UpdateRoleSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { roles, tenantId } = await requireAdminContext(context);
@@ -116,23 +121,18 @@ export const updateUserRole = createServerFn({ method: "POST" })
       assignedRole: data.role,
     });
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error: deleteError } = await supabaseAdmin
-      .from("user_roles")
-      .delete()
-      .eq("user_id", data.user_id);
-    if (deleteError) throw new Error("Failed to update user role.");
-    const { error: insertError } = await supabaseAdmin
-      .from("user_roles")
-      .insert({ user_id: data.user_id, role: data.role });
-    if (insertError) throw new Error("Failed to update user role.");
+    const { error } = await context.supabase.rpc("set_user_role", {
+      _user_id: data.user_id,
+      _role: data.role,
+    });
+    if (error) throw new Error("Failed to update user role.");
     return { ok: true };
   });
 
 const SetActiveSchema = z.object({ user_id: z.string().uuid(), is_active: z.boolean() });
 
 export const setUserActive = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireUsersAccess])
   .validator((input: unknown) => SetActiveSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { tenantId, roles } = await requireAdminContext(context);

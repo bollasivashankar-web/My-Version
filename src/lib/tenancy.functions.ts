@@ -44,6 +44,42 @@ export const getTenancy = createServerFn({ method: "GET" })
 
 /* ------------------------- LEVEL 1: PLATFORM ------------------------- */
 
+const PlatformConsoleOverviewSchema = z.object({
+  totals: z.object({
+    tenants: z.number().int().nonnegative(),
+    users: z.number().int().nonnegative(),
+    requirements: z.number().int().nonnegative(),
+    candidates: z.number().int().nonnegative(),
+  }),
+  tenants: z.array(
+    z.object({
+      id: z.string().uuid(),
+      name: z.string(),
+      slug: z.string(),
+      plan: z.enum(["trial", "starter", "growth", "enterprise"]),
+      status: z.enum(["active", "trialing", "suspended", "cancelled"]),
+      seat_limit: z.number().int().positive(),
+      industry: z.string().nullable(),
+      website: z.string().nullable(),
+      primary_contact_email: z.string().nullable(),
+      tax_id: z.string().nullable(),
+      company_address: z.string().nullable(),
+      owner_contact_name: z.string().nullable(),
+      owner_contact_email: z.string().nullable(),
+      owner_contact_phone: z.string().nullable(),
+      admin_contact_name: z.string().nullable(),
+      admin_contact_email: z.string().nullable(),
+      admin_contact_phone: z.string().nullable(),
+      created_at: z.string().nullable(),
+      stats: z.object({
+        users: z.number().int().nonnegative(),
+        requirements: z.number().int().nonnegative(),
+        candidates: z.number().int().nonnegative(),
+      }),
+    }),
+  ),
+});
+
 export const listTenants = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -51,27 +87,9 @@ export const listTenants = createServerFn({ method: "GET" })
     const { requirePlatformAdmin } = await import("@/lib/platform-auth.server");
     await requirePlatformAdmin(supabase, userId);
 
-    const { data: tenants, error } = await supabase
-      .from("tenants")
-      .select(
-        "id, name, slug, plan, status, seat_limit, industry, primary_contact_email, created_at",
-      )
-      .order("created_at", { ascending: false });
+    const { data, error } = await supabase.rpc("platform_console_overview");
     if (error) throw new Error(`Failed to load tenants: ${error.message}`);
-
-    return {
-      tenants: (tenants ?? []).map((tenant) => ({
-        ...tenant,
-        stats: { users: 0, requirements: 0, candidates: 0, placements: 0 },
-      })),
-      totals: {
-        tenants: tenants?.length ?? 0,
-        users: 0,
-        requirements: 0,
-        candidates: 0,
-        placements: 0,
-      },
-    };
+    return PlatformConsoleOverviewSchema.parse(data);
   });
 
 const TenantSchema = z.object({
@@ -93,9 +111,20 @@ const TenantSchema = z.object({
   status: z.enum(["active", "trialing", "suspended", "cancelled"]),
   seat_limit: z.number().int().min(1).max(10000),
   industry: z.string().trim().max(80).nullable().optional(),
-  website: z.string().trim().max(200).nullable().optional(),
+  website: z.string().trim().url().max(200).nullable().optional(),
   primary_contact_email: z.string().trim().email().max(200).nullable().optional(),
+  tax_id: z.string().trim().max(80).nullable().optional(),
+  company_address: z.string().trim().max(500).nullable().optional(),
+  owner_contact_name: z.string().trim().max(120).nullable().optional(),
+  owner_contact_email: z.string().trim().email().max(255).nullable().optional(),
+  owner_contact_phone: z.string().trim().max(40).nullable().optional(),
+  admin_contact_name: z.string().trim().max(120).nullable().optional(),
+  admin_contact_email: z.string().trim().email().max(255).nullable().optional(),
+  admin_contact_phone: z.string().trim().max(40).nullable().optional(),
 });
+
+const TENANT_REGISTRATION_FIELDS =
+  "id, name, slug, plan, status, seat_limit, industry, website, primary_contact_email, tax_id, company_address, owner_contact_name, owner_contact_email, owner_contact_phone, admin_contact_name, admin_contact_email, admin_contact_phone, created_at";
 
 export const createTenant = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -107,9 +136,7 @@ export const createTenant = createServerFn({ method: "POST" })
     const { data: created, error } = await supabase
       .from("tenants")
       .insert(data)
-      .select(
-        "id, name, slug, plan, status, seat_limit, industry, primary_contact_email, created_at",
-      )
+      .select(TENANT_REGISTRATION_FIELDS)
       .maybeSingle();
     if (error) throw new Error(error.message);
 
@@ -142,9 +169,7 @@ export const updateTenant = createServerFn({ method: "POST" })
       .from("tenants")
       .update(data.patch)
       .eq("id", data.id)
-      .select(
-        "id, name, slug, plan, status, seat_limit, industry, primary_contact_email, created_at",
-      )
+      .select(TENANT_REGISTRATION_FIELDS)
       .maybeSingle();
     if (error) throw new Error(error.message);
 

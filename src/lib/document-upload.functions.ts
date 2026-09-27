@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireCandidatesAccess } from "@/integrations/supabase/auth-middleware";
 
 const DOCUMENT_MIME_TYPES = [
   "application/pdf",
@@ -35,7 +35,7 @@ const DocumentUploadSchema = z
   );
 
 export const createDocumentUpload = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireCandidatesAccess])
   .validator((input: unknown) => DocumentUploadSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { data: issued, error: issueError } = await context.supabase

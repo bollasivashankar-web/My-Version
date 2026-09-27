@@ -51,11 +51,8 @@ import {
   Eye,
   Sparkles,
   ArrowUpDown,
-  Calendar,
   DollarSign,
   Building,
-  Mail,
-  Phone,
   Briefcase,
   ShieldCheck,
 } from "lucide-react";
@@ -76,6 +73,8 @@ export const Route = createFileRoute("/_authenticated/requirements/")({
   component: RequisitionsListPage,
 });
 
+type RequirementListItem = Awaited<ReturnType<typeof listRequirements>>["rows"][number];
+
 function RequisitionsListPage() {
   const listFn = useServerFn(listRequirements);
   const navigate = useNavigate();
@@ -84,7 +83,7 @@ function RequisitionsListPage() {
   const [priority, setPriority] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("created_desc");
   const [page, setPage] = useState(1);
-  const [reviewReq, setReviewReq] = useState<any | null>(null);
+  const [reviewReq, setReviewReq] = useState<RequirementListItem | null>(null);
   const pageSize = 20;
 
   const query = useMemo(
@@ -109,7 +108,7 @@ function RequisitionsListPage() {
 
   const filteredRequirements = useMemo(() => {
     const rows = data?.rows ?? [];
-    return [...rows].sort((a: any, b: any) => {
+    return [...rows].sort((a, b) => {
       if (sortBy === "created_desc")
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       if (sortBy === "created_asc")
@@ -244,7 +243,7 @@ function RequisitionsListPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRequirements.map((r: any) => (
+                {filteredRequirements.map((r) => (
                   <TableRow
                     key={r.id}
                     className="border-b border-border/60 hover:bg-accent/40 cursor-pointer transition-colors"
@@ -256,19 +255,13 @@ function RequisitionsListPage() {
                           {r.title}
                         </span>
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                          {(r.skills ?? []).slice(0, 3).map((s: string) => (
+                          {r.primary_technology && (
                             <Badge
-                              key={s}
                               variant="secondary"
                               className="text-[10px] px-1.5 py-0 font-normal bg-surface border border-border"
                             >
-                              {s}
+                              {r.primary_technology}
                             </Badge>
-                          ))}
-                          {(r.skills ?? []).length > 3 && (
-                            <span className="text-[10px] text-muted-foreground">
-                              +{r.skills.length - 3}
-                            </span>
                           )}
                         </div>
                       </div>
@@ -294,11 +287,12 @@ function RequisitionsListPage() {
                         variant="outline"
                         className="text-[10px] bg-surface font-mono font-normal"
                       >
-                        {r.visa_required}
+                        {r.visa_types?.join(", ") || "Any"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs font-semibold text-foreground">
-                      ${r.rate_min} - ${r.rate_max}/hr
+                      {formatRate(r.rate_min, r.rate_max, r.rate_type, r.currency) ??
+                        "Not specified"}
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -394,15 +388,15 @@ function RequisitionsListPage() {
                       <MapPin className="h-3.5 w-3.5 text-primary" /> Location:
                     </span>
                     <p className="font-semibold text-foreground mt-0.5">
-                      {reviewReq.location} ({reviewReq.work_model})
+                      {reviewReq.location || "Remote"} ({reviewReq.work_mode || "remote"})
                     </p>
                   </div>
                   <div>
                     <span className="text-muted-foreground flex items-center gap-1">
-                      <Briefcase className="h-3.5 w-3.5 text-primary" /> Engagement:
+                      <Briefcase className="h-3.5 w-3.5 text-primary" /> Primary technology:
                     </span>
                     <p className="font-semibold text-foreground mt-0.5">
-                      {reviewReq.engagement_type} ({reviewReq.duration})
+                      {reviewReq.primary_technology || "Not specified"}
                     </p>
                   </div>
                   <div>
@@ -410,7 +404,12 @@ function RequisitionsListPage() {
                       <DollarSign className="h-3.5 w-3.5 text-primary" /> Rate:
                     </span>
                     <p className="font-semibold text-foreground mt-0.5">
-                      ${reviewReq.rate_min} - ${reviewReq.rate_max}/hr
+                      {formatRate(
+                        reviewReq.rate_min,
+                        reviewReq.rate_max,
+                        reviewReq.rate_type,
+                        reviewReq.currency,
+                      ) ?? "Not specified"}
                     </p>
                   </div>
                   <div>
@@ -418,14 +417,19 @@ function RequisitionsListPage() {
                       <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Visa Required:
                     </span>
                     <p className="font-semibold text-foreground mt-0.5">
-                      {reviewReq.visa_required}
+                      {reviewReq.visa_types?.join(", ") || "Any"}
                     </p>
                   </div>
                   <div>
                     <span className="text-muted-foreground flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5 text-primary" /> Start Date:
+                      <Briefcase className="h-3.5 w-3.5 text-primary" /> Experience:
                     </span>
-                    <p className="font-semibold text-foreground mt-0.5">{reviewReq.start_date}</p>
+                    <p className="font-semibold text-foreground mt-0.5">
+                      {reviewReq.min_experience_years == null &&
+                      reviewReq.max_experience_years == null
+                        ? "Not specified"
+                        : `${reviewReq.min_experience_years ?? 0}–${reviewReq.max_experience_years ?? "any"} years`}
+                    </p>
                   </div>
                 </div>
 
@@ -434,55 +438,22 @@ function RequisitionsListPage() {
                   <h4 className="font-semibold text-foreground flex items-center gap-1.5">
                     Vendor Partner
                   </h4>
-                  <div className="grid grid-cols-2 gap-2 text-muted-foreground">
-                    <div>
-                      <span className="font-medium text-foreground">{reviewReq.vendor_name}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Mail className="h-3 w-3" /> {reviewReq.vendor_email}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Phone className="h-3 w-3" /> {reviewReq.vendor_contact}
-                    </div>
-                  </div>
+                  <p className="text-muted-foreground">
+                    {reviewReq.vendor_name || "Direct sourcing"}
+                  </p>
                 </div>
 
                 {/* Required Skills */}
                 <div className="space-y-2">
                   <h4 className="text-xs font-semibold text-foreground">Primary Required Skills</h4>
                   <div className="flex flex-wrap gap-1.5">
-                    {(reviewReq.skills ?? []).map((s: string) => (
-                      <Badge
-                        key={s}
-                        className="bg-primary/10 text-primary border-primary/20 text-xs"
-                      >
-                        {s}
+                    {reviewReq.primary_technology ? (
+                      <Badge className="bg-primary/10 text-primary border-primary/20 text-xs">
+                        {reviewReq.primary_technology}
                       </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Secondary Skills & Experience */}
-                <div className="grid grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <h4 className="font-semibold text-foreground mb-1">Secondary Skills</h4>
-                    <p className="text-muted-foreground">
-                      {(reviewReq.secondary_skills ?? []).join(", ") || "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-foreground mb-1">Min. Experience & Certs</h4>
-                    <p className="text-muted-foreground">
-                      {reviewReq.min_experience} · {reviewReq.certifications}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Job Description */}
-                <div className="space-y-1.5">
-                  <h4 className="text-xs font-semibold text-foreground">Job Description</h4>
-                  <div className="rounded-md border border-border bg-surface p-3 text-xs text-muted-foreground leading-relaxed">
-                    {reviewReq.description}
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Not specified</span>
+                    )}
                   </div>
                 </div>
 

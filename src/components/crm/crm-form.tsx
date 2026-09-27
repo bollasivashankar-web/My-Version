@@ -28,6 +28,8 @@ export type CrmFormValues = {
   contact_name: string | null;
   contact_email: string | null;
   contact_phone: string | null;
+  linkedin_id?: string | null; // vendors only
+  contact_role?: string | null; // vendors only
   website: string | null;
   address: string | null;
   city: string | null;
@@ -63,6 +65,8 @@ export function CrmForm({
     contact_name: initial?.contact_name ?? null,
     contact_email: initial?.contact_email ?? null,
     contact_phone: initial?.contact_phone ?? null,
+    linkedin_id: initial?.linkedin_id ?? null,
+    contact_role: initial?.contact_role ?? null,
     website: initial?.website ?? null,
     address: initial?.address ?? null,
     city: initial?.city ?? null,
@@ -91,7 +95,7 @@ export function CrmForm({
         <h3 className="mb-4 text-sm font-medium text-foreground">Basics</h3>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
-            <Label>Name *</Label>
+            <Label>{kind === "vendor" ? "Company Name" : "Name"} *</Label>
             <Input
               value={v.name}
               onChange={(e) => set("name", e.target.value)}
@@ -164,14 +168,14 @@ export function CrmForm({
         <h3 className="mb-4 text-sm font-medium text-foreground">Contact Details</h3>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <Label>Contact Name</Label>
+            <Label>{kind === "vendor" ? "Name" : "Contact Name"}</Label>
             <Input
               value={v.contact_name ?? ""}
               onChange={(e) => set("contact_name", s(e.target.value))}
             />
           </div>
           <div>
-            <Label>Contact Email</Label>
+            <Label>{kind === "vendor" ? "Mail" : "Contact Email"}</Label>
             <Input
               type="email"
               value={v.contact_email ?? ""}
@@ -179,7 +183,7 @@ export function CrmForm({
             />
           </div>
           <div>
-            <Label>Contact Phone</Label>
+            <Label>{kind === "vendor" ? "Contact Number" : "Contact Phone"}</Label>
             <Input
               type="tel"
               value={v.contact_phone ?? ""}
@@ -195,6 +199,28 @@ export function CrmForm({
               placeholder="https://..."
             />
           </div>
+          {kind === "vendor" && (
+            <>
+              <div>
+                <Label>LinkedIn ID</Label>
+                <Input
+                  value={v.linkedin_id ?? ""}
+                  onChange={(e) => set("linkedin_id", s(e.target.value))}
+                  placeholder="Profile URL or LinkedIn ID"
+                  maxLength={255}
+                />
+              </div>
+              <div>
+                <Label>Role</Label>
+                <Input
+                  value={v.contact_role ?? ""}
+                  onChange={(e) => set("contact_role", s(e.target.value))}
+                  placeholder="e.g. Account Manager"
+                  maxLength={120}
+                />
+              </div>
+            </>
+          )}
         </div>
       </section>
 

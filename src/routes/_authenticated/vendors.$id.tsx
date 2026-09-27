@@ -22,7 +22,7 @@ import {
 import { CrmForm } from "@/components/crm/crm-form";
 import { deleteVendor, getVendor, updateVendor } from "@/lib/vendors.functions";
 import { STATUS_LABEL, STATUS_STYLES, TIER_LABEL, TIER_STYLES } from "@/lib/crm-constants";
-import { Loader2, Trash2, Mail, Phone, Globe, MapPin } from "lucide-react";
+import { Loader2, Trash2, Mail, Phone, Globe, MapPin, Linkedin, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
@@ -145,6 +145,16 @@ function VendorDetailPage() {
                   icon={<Phone className="h-4 w-4" />}
                   label="Phone"
                   value={v.contact_phone ?? "—"}
+                />
+                <Row
+                  icon={<Briefcase className="h-4 w-4" />}
+                  label="Role"
+                  value={v.contact_role ?? "—"}
+                />
+                <Row
+                  icon={<Linkedin className="h-4 w-4" />}
+                  label="LinkedIn"
+                  value={v.linkedin_id ?? "—"}
                 />
                 <Row
                   icon={<Globe className="h-4 w-4" />}

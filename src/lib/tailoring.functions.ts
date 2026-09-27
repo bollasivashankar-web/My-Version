@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireTailoringAccess } from "@/integrations/supabase/auth-middleware";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { requestStructuredAiOutput } from "@/lib/ai-gateway.server";
 import { writeAudit } from "@/lib/audit.server";
@@ -403,7 +403,7 @@ function calculateMatchScore(
 }
 
 export const verifyCandidateResume = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireTailoringAccess])
   .validator((input: unknown) =>
     z
       .object({
@@ -535,7 +535,7 @@ export const verifyCandidateResume = createServerFn({ method: "POST" })
   });
 
 export const generateFactPreservingResume = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireTailoringAccess])
   .validator((input: unknown) => IdPairSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
@@ -598,7 +598,7 @@ export const generateFactPreservingResume = createServerFn({ method: "POST" })
   });
 
 export const approveFactPreservingResume = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireTailoringAccess])
   .validator((input: unknown) =>
     z
       .object({

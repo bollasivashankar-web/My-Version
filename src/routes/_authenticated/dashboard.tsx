@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -6,7 +5,6 @@ import { AppTopbar } from "@/components/app-shell/topbar";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getDashboardOverview, getRecentActivity } from "@/lib/dashboard.functions";
@@ -21,12 +19,9 @@ import {
   Trophy,
   CalendarClock,
   TrendingUp,
-  ArrowRight,
   Sparkles,
   UserCheck,
   HelpCircle,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -42,6 +37,7 @@ import {
   Cell,
 } from "recharts";
 import { STATUS_LABEL, PRIORITY_LABEL } from "@/lib/requirements-constants";
+import { canAccessFeature, getFeatureForPath } from "@/lib/feature-access";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -63,6 +59,10 @@ function UnifiedDashboardPage() {
   const { data: profile } = useProfile();
   const { isAuthenticated } = useSession();
   const { level } = useRoleLevel();
+  const accessIdentity = {
+    roles: profile?.roles ?? [],
+    platformRole: profile?.platformRole ?? null,
+  };
 
   const {
     data: overview,
@@ -98,14 +98,7 @@ function UnifiedDashboardPage() {
           ? "Developer"
           : "Recruiter");
 
-  const pageDescription =
-    level === "L1"
-      ? "SaaS Platform Overview — Multi-tenant governance, system health, and administrative controls."
-      : level === "L2"
-        ? "Executive Dashboard — High-level recruitment desk KPIs, placements, client partnerships, and team performance."
-        : level === "L3"
-          ? "Developer & Lead Desk — APIs, webhooks, automation status, and recruiter access management."
-          : "Live recruitment desk — Active candidates, requisitions, 14-day trends, and team performance.";
+  const pageDescription = `${profile?.roleTitle ?? "Team"} workspace — live recruitment operations and the features assigned to your role.`;
 
   const activeCandidatesCount = stats?.activeConsultants ?? 0;
   const openReqsCount = stats?.openRequirements ?? 0;
@@ -159,7 +152,7 @@ function UnifiedDashboardPage() {
       value: subsThisWeekCount,
       hint: "Candidates submitted to clients this week",
       icon: Send,
-      to: "/submissions/board",
+      to: "/interviews",
       badge: `${subsThisWeekCount} this week`,
       badgeClass: "bg-success/10 text-success border-success/20",
     },
@@ -190,7 +183,10 @@ function UnifiedDashboardPage() {
       badge: `${hires30dCount} in 30d`,
       badgeClass: "bg-success/10 text-success border-success/20",
     },
-  ];
+  ].filter((item) => {
+    const feature = getFeatureForPath(item.to);
+    return feature ? canAccessFeature(accessIdentity, feature) : true;
+  });
 
   const funnelStages = [
     { key: "Submitted", stage: "submitted", color: "bg-blue-500" },
@@ -508,41 +504,47 @@ function UnifiedDashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
-                <Link
-                  to="/requirements"
-                  className="group p-3 rounded-lg border border-border bg-surface/40 hover:bg-muted/40 hover:border-primary/40 transition-all"
-                >
-                  <div className="font-semibold text-xs text-foreground group-hover:text-primary">
-                    Requisitions
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Review active job roles, client details, and parsed job descriptions.
-                  </p>
-                </Link>
+                {canAccessFeature(accessIdentity, "requirements") && (
+                  <Link
+                    to="/requirements"
+                    className="group rounded-lg border border-border bg-surface/40 p-3 transition-all hover:border-primary/40 hover:bg-muted/40"
+                  >
+                    <div className="text-xs font-semibold text-foreground group-hover:text-primary">
+                      Requisitions
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Review active job roles, client details, and parsed job descriptions.
+                    </p>
+                  </Link>
+                )}
 
-                <Link
-                  to="/candidates"
-                  className="group p-3 rounded-lg border border-border bg-surface/40 hover:bg-muted/40 hover:border-primary/40 transition-all"
-                >
-                  <div className="font-semibold text-xs text-foreground group-hover:text-primary">
-                    Bench Candidates
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Browse candidate bench and view full original raw resumes.
-                  </p>
-                </Link>
+                {canAccessFeature(accessIdentity, "candidates") && (
+                  <Link
+                    to="/candidates"
+                    className="group rounded-lg border border-border bg-surface/40 p-3 transition-all hover:border-primary/40 hover:bg-muted/40"
+                  >
+                    <div className="text-xs font-semibold text-foreground group-hover:text-primary">
+                      Bench Candidates
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Browse candidate bench and review candidate profiles.
+                    </p>
+                  </Link>
+                )}
 
-                <Link
-                  to="/submissions/board"
-                  className="group p-3 rounded-lg border border-border bg-surface/40 hover:bg-muted/40 hover:border-primary/40 transition-all"
-                >
-                  <div className="font-semibold text-xs text-foreground group-hover:text-primary">
-                    Submissions Board
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Track candidate submission stages from Submitted to Hired.
-                  </p>
-                </Link>
+                {canAccessFeature(accessIdentity, "submissions") && (
+                  <Link
+                    to="/submissions/board"
+                    className="group rounded-lg border border-border bg-surface/40 p-3 transition-all hover:border-primary/40 hover:bg-muted/40"
+                  >
+                    <div className="text-xs font-semibold text-foreground group-hover:text-primary">
+                      Submissions Board
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Track candidate submission stages from Submitted to Hired.
+                    </p>
+                  </Link>
+                )}
               </CardContent>
             </Card>
 
@@ -554,7 +556,7 @@ function UnifiedDashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {(activity ?? []).slice(0, 5).map((a: any) => {
+                {(activity ?? []).slice(0, 5).map((a) => {
                   const item = formatActivityItem(a);
                   return (
                     <div
@@ -592,11 +594,20 @@ function UnifiedDashboardPage() {
   );
 }
 
-function formatActivityItem(a: any) {
-  if (a.metadata?.title && a.metadata?.description) {
+type ActivityLog = Awaited<ReturnType<typeof getRecentActivity>>[number];
+
+function getActivityMetadata(metadata: ActivityLog["metadata"]): Record<string, unknown> {
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata)
+    ? (metadata as Record<string, unknown>)
+    : {};
+}
+
+function formatActivityItem(a: ActivityLog) {
+  const metadata = getActivityMetadata(a.metadata);
+  if (typeof metadata.title === "string" && typeof metadata.description === "string") {
     return {
-      title: a.metadata.title,
-      details: a.metadata.description,
+      title: metadata.title,
+      details: metadata.description,
     };
   }
 
@@ -609,7 +620,7 @@ function formatActivityItem(a: any) {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(" "),
     details:
-      a.metadata?.description ||
+      (typeof metadata.description === "string" ? metadata.description : null) ||
       (entityId
         ? `Activity logged for ${a.entity_type || "item"} #${entityId}`
         : "Activity recorded."),

@@ -75,7 +75,25 @@ for (const [name, source] of [
   assert.match(source, /requestStructuredAiOutput/, `${name} lacks schema-bound AI output`);
 }
 
-assert.match(copilot, /requireSupabaseAuth/, "Copilot lacks authenticated tenant scoping");
+assert.match(
+  copilot,
+  /requireDashboardAccess/,
+  "Copilot lacks authenticated, feature-scoped dashboard access",
+);
+const authMiddleware = readFileSync(
+  resolve(root, "src/integrations/supabase/auth-middleware.ts"),
+  "utf8",
+);
+assert.match(
+  authMiddleware,
+  /requireDashboardAccess\s*=\s*requireFeatureAccess\("dashboard"\)/,
+  "Dashboard access middleware is not bound to the dashboard feature",
+);
+assert.match(
+  authMiddleware,
+  /requireFeatureAccess[\s\S]*\.middleware\(\[requireSupabaseAuth\]\)/,
+  "Feature access middleware no longer authenticates callers",
+);
 assert.match(copilot, /UNTRUSTED_DOCUMENT_SYSTEM_RULES/, "Copilot lacks injection-resistant rules");
 assert.match(copilot, /requestStructuredAiOutput/, "Copilot lacks schema-bound AI output");
 assert.match(copilot, /Never make or recommend automatic hiring\/rejection decisions/);

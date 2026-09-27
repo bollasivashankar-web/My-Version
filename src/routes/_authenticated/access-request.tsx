@@ -83,7 +83,7 @@ function ApproverTable() {
 
   const [overrideMap, setOverrideMap] = useState<Record<string, string>>({});
 
-  const requests = requestsData.map((r: any) => ({
+  const requests = requestsData.map((r) => ({
     ...r,
     status: overrideMap[r.id] ?? r.status,
   }));
@@ -156,8 +156,8 @@ function ApproverTable() {
                   </TableCell>
                 </TableRow>
               )}
-              {requests.map((r: any) => {
-                const name = r.user_name || r.user_email?.split("@")[0] || "Account holder";
+              {requests.map((r) => {
+                const name = r.user_email?.split("@")[0] || "Account holder";
                 const email = r.user_email || "Email unavailable";
                 const isPending = r.status === "pending";
                 return (

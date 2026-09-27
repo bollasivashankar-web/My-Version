@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireClientsAccess } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const STATUSES = ["prospect", "active", "inactive"] as const;
@@ -45,7 +45,7 @@ const ListSchema = z.object({
 });
 
 export const listClients = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireClientsAccess])
   .validator((input: unknown) => ListSchema.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const from = (data.page - 1) * data.page_size;
@@ -66,7 +66,7 @@ export const listClients = createServerFn({ method: "POST" })
   });
 
 export const listClientsLite = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireClientsAccess])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("clients")
@@ -78,7 +78,7 @@ export const listClientsLite = createServerFn({ method: "GET" })
   });
 
 export const getClient = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireClientsAccess])
   .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { data: client, error } = await context.supabase
@@ -124,7 +124,7 @@ export const getClient = createServerFn({ method: "POST" })
   });
 
 export const createClient = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireClientsAccess])
   .validator((input: unknown) => ClientInputSchema.parse(input))
   .handler(async ({ data, context }) => {
     const payload = { ...data, created_by: context.userId };
@@ -138,7 +138,7 @@ export const createClient = createServerFn({ method: "POST" })
   });
 
 export const updateClient = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireClientsAccess])
   .validator((input: unknown) =>
     z.object({ id: z.string().uuid(), patch: ClientInputSchema.partial() }).parse(input),
   )
@@ -155,7 +155,7 @@ export const updateClient = createServerFn({ method: "POST" })
   });
 
 export const deleteClient = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireClientsAccess])
   .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase

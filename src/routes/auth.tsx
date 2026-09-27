@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-r
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
+import { canAccessPath, getDefaultAuthorizedPath } from "@/lib/feature-access";
 import {
   AlertCircle,
   CheckCircle2,
@@ -109,6 +110,16 @@ function getSafeRedirect(value?: string): string {
   return redirect;
 }
 
+function getPostAuthRedirect(
+  profile: { roles: string[]; platformRole: string | null },
+  requestedPath: string,
+): string {
+  const identity = { roles: profile.roles, platformRole: profile.platformRole };
+  const defaultPath = getDefaultAuthorizedPath(identity);
+  if (requestedPath === "/overview") return defaultPath;
+  return canAccessPath(identity, requestedPath) ? requestedPath : defaultPath;
+}
+
 /**
  * Convert Supabase authentication errors into safe user-facing messages.
  *
@@ -164,6 +175,10 @@ function AuthPage() {
           error,
         } = await supabase.auth.getUser();
 
+        if (error?.name === "AuthSessionMissingError") {
+          return;
+        }
+
         if (error) {
           console.error("Failed to retrieve authentication session:", error);
           return;
@@ -171,9 +186,9 @@ function AuthPage() {
 
         if (mounted && user && search.mode !== "recovery") {
           try {
-            await getMyProfileFn();
+            const profile = await getMyProfileFn();
             navigate({
-              to: safeRedirect,
+              to: getPostAuthRedirect(profile, safeRedirect),
               replace: true,
             });
           } catch {
@@ -459,6 +474,7 @@ function SignInForm({ redirect }: { redirect: string }) {
     }
 
     setLoading(true);
+    let postAuthRedirect = redirect;
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -481,6 +497,8 @@ function SignInForm({ redirect }: { redirect: string }) {
         if (profile?.profile?.full_name) {
           fullName = profile.profile.full_name;
         }
+
+        postAuthRedirect = getPostAuthRedirect(profile, redirect);
       } catch {
         await supabase.auth.signOut();
         throw new Error("Your account is not provisioned for this application.");
@@ -492,7 +510,7 @@ function SignInForm({ redirect }: { redirect: string }) {
       toast.success(`Welcome back, ${fullName}.`);
 
       navigate({
-        to: redirect,
+        to: postAuthRedirect,
         replace: true,
       });
     } catch (error) {
@@ -771,7 +789,7 @@ function SignUpForm({ redirect }: { redirect: string }) {
       toast.success("Account created successfully.");
 
       navigate({
-        to: redirect,
+        to: "/access-request",
         replace: true,
       });
     } catch (error) {

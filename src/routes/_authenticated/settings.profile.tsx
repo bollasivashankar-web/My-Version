@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppTopbar } from "@/components/app-shell/topbar";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,11 +11,24 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { CheckCircle2, Loader2, Mail, Phone as PhoneIcon, ShieldCheck, User } from "lucide-react";
+import {
+  Camera,
+  CheckCircle2,
+  Loader2,
+  Mail,
+  Phone as PhoneIcon,
+  ShieldCheck,
+  User,
+} from "lucide-react";
 import { useProfile } from "@/hooks/use-profile";
 import { useSession } from "@/hooks/use-session";
 import { useRoleLevel } from "@/hooks/use-role-level";
+import { supabase } from "@/integrations/supabase/client";
 import { updateMyProfile } from "@/lib/profile.functions";
+
+const PROFILE_AVATAR_BUCKET = "profile-avatars";
+const PROFILE_AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+const PROFILE_AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 const ROLE_MAP: Record<string, { label: string; desc: string }> = {
   super_admin: { label: "Super Admin", desc: "Full administrative and tenant access" },
@@ -44,6 +57,7 @@ function ProfileSettingsPage() {
   const { level } = useRoleLevel();
   const qc = useQueryClient();
   const updateFn = useServerFn(updateMyProfile);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -88,6 +102,42 @@ function ProfileSettingsPage() {
       toast.success("Profile updated successfully");
     },
     onError: (e) => toast.error((e as Error).message),
+  });
+
+  const avatarMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (!user?.id) throw new Error("Your authenticated profile is not ready yet.");
+      if (!PROFILE_AVATAR_TYPES.has(file.type)) {
+        throw new Error("Choose a JPEG, PNG, or WebP image.");
+      }
+      if (file.size < 1 || file.size > PROFILE_AVATAR_MAX_BYTES) {
+        throw new Error("Profile pictures must be smaller than 5 MB.");
+      }
+
+      const path = `${user.id}/avatar`;
+      const { error: uploadError } = await supabase.storage
+        .from(PROFILE_AVATAR_BUCKET)
+        .upload(path, file, {
+          cacheControl: "3600",
+          contentType: file.type,
+          upsert: true,
+        });
+      if (uploadError) throw new Error(`Unable to upload profile picture: ${uploadError.message}`);
+
+      const { data: publicUrl } = supabase.storage.from(PROFILE_AVATAR_BUCKET).getPublicUrl(path);
+      const nextAvatarUrl = `${publicUrl.publicUrl}?v=${Date.now()}`;
+      await updateFn({ data: { avatar_url: nextAvatarUrl } });
+      return nextAvatarUrl;
+    },
+    onSuccess: async (nextAvatarUrl) => {
+      setAvatarUrl(nextAvatarUrl);
+      await qc.invalidateQueries({ queryKey: ["me"] });
+      toast.success("Profile picture updated");
+    },
+    onError: (error) => toast.error((error as Error).message),
+    onSettled: () => {
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    },
   });
 
   const resolvedEmail = data?.email || data?.profile?.email || emailFromSession;
@@ -150,13 +200,44 @@ function ProfileSettingsPage() {
                     <Mail className="h-3.5 w-3.5 shrink-0 text-primary" />
                     <span>{resolvedEmail || "Signed in"}</span>
                   </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <input
+                      ref={avatarInputRef}
+                      id="profile-picture-upload"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) avatarMutation.mutate(file);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!user?.id || avatarMutation.isPending}
+                      onClick={() => avatarInputRef.current?.click()}
+                      className="h-8 text-xs"
+                    >
+                      {avatarMutation.isPending ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Camera className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      {avatarMutation.isPending ? "Uploading…" : "Update photo"}
+                    </Button>
+                    <span className="text-[10px] text-muted-foreground">
+                      JPEG, PNG or WebP · max 5 MB
+                    </span>
+                  </div>
                 </div>
               </div>
 
               {/* Avatar URL */}
               <div className="space-y-1.5">
                 <Label htmlFor="avatar" className="text-xs font-medium">
-                  Avatar Image URL
+                  Profile image URL (optional)
                 </Label>
                 <Input
                   id="avatar"
@@ -166,7 +247,8 @@ function ProfileSettingsPage() {
                   className="bg-surface text-xs"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Paste a direct image link or leave empty to use your initials avatar.
+                  You can upload a photo above, paste a direct image link, or leave this empty to
+                  use your initials.
                 </p>
               </div>
 

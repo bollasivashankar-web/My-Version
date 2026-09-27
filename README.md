@@ -12,6 +12,7 @@ Browser
   -> authenticated TanStack server functions
       -> Supabase Auth + tenant-scoped Postgres/RLS
       -> server-only AI gateway
+      -> tenant-filtered Qdrant RAG -> local Ollama embeddings + grounded answers
       -> private document-processing worker -> ClamAV
 
 Scheduled Nitro task
@@ -57,6 +58,11 @@ scripts/                      release-time architecture and security guards
   also enforce explicit server-side RBAC.
 - Password and OAuth login call Supabase Auth directly. Failed authentication terminates the flow,
   and an authenticated account without an active application profile is immediately signed out.
+- Password recovery uses Supabase recovery links and updates the password only inside a verified
+  recovery session. New signups receive no tenant or application role until an administrator
+  explicitly provisions them.
+- Role levels shown in the UI are read-only projections of `platform_admins` and `user_roles`;
+  browsers cannot persist or update authorization fields on `profiles`.
 - Tenant-owned rows are protected by RLS and integrity guards. Cross-tenant access is tested with
   adversarial SQL cases.
 - Production bundles fail closed if fixture imports are reintroduced.
@@ -65,6 +71,9 @@ scripts/                      release-time architecture and security guards
 - Collection endpoints are bounded. Dashboard metrics are produced by one tenant-scoped aggregate
   RPC instead of loading business rows into the application server.
 - AI responses have a hard deadline, a byte ceiling, and caller-provided schema validation.
+- Candidate matching applies deterministic mandatory-skill, experience, work-authorization, and
+  location checks before ranking; AI output is explanation-only decision support with human review
+  and model/prompt metadata in the audit trail.
 - Resume uploads use canonical tenant/candidate paths. Untrusted PDF/DOCX processing occurs outside
   the web process and rejects active content, archive traversal, zip bombs, oversized files, and
   unsafe extracted text.
@@ -77,19 +86,29 @@ scripts/                      release-time architecture and security guards
 
 For the web application:
 
-| Variable                        | Scope         | Purpose                                          |
-| ------------------------------- | ------------- | ------------------------------------------------ |
-| `VITE_SUPABASE_URL`             | Browser       | Supabase project URL                             |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Browser       | Supabase publishable key; never use a secret key |
-| `SUPABASE_URL`                  | Server        | Supabase project URL                             |
-| `SUPABASE_PUBLISHABLE_KEY`      | Server        | Publishable key used with the caller's session   |
-| `LOVABLE_API_KEY`               | Server        | AI gateway credential                            |
-| `DOCUMENT_PROCESSOR_URL`        | Server        | Private URL for the document worker              |
-| `DOCUMENT_PROCESSOR_TOKEN`      | Server/worker | Shared secret of at least 32 random characters   |
+| Variable                        | Scope         | Purpose                                            |
+| ------------------------------- | ------------- | -------------------------------------------------- |
+| `VITE_SUPABASE_URL`             | Browser       | Supabase project URL                               |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Browser       | Supabase publishable key; never use a secret key   |
+| `SUPABASE_URL`                  | Server        | Supabase project URL                               |
+| `SUPABASE_PUBLISHABLE_KEY`      | Server        | Publishable key used with the caller's session     |
+| `LOVABLE_API_KEY`               | Server        | AI gateway credential                              |
+| `DOCUMENT_PROCESSOR_URL`        | Server        | Private URL for the document worker                |
+| `DOCUMENT_PROCESSOR_TOKEN`      | Server/worker | Shared secret of at least 32 random characters     |
+| `QDRANT_URL`                    | Server        | Qdrant REST URL; defaults to `127.0.0.1:6333`      |
+| `QDRANT_API_KEY`                | Server        | Optional key for a remote Qdrant deployment        |
+| `QDRANT_COLLECTION`             | Server        | Collection name; defaults to `staffinix_knowledge` |
+| `OLLAMA_URL`                    | Server        | Ollama API URL; defaults to `127.0.0.1:11434`      |
+| `OLLAMA_EMBED_MODEL`            | Server        | Embedding model; defaults to `embeddinggemma`      |
+| `OLLAMA_CHAT_MODEL`             | Server        | Answer model; defaults to `gemma3:4b`              |
 
 The document worker also requires `CLAMAV_HOST`; `CLAMAV_PORT` defaults to `3310` and `PORT`
 defaults to `8788`. See [workers/document-processor/README.md](workers/document-processor/README.md)
 for its isolation and resource-limit requirements.
+
+Before production launch, enable Supabase Auth leaked-password protection in the project dashboard.
+The database advisor reports this separately because it is an Auth project setting, not a SQL
+migration.
 
 ## Local development
 
@@ -97,8 +116,20 @@ Use Node.js 22 or newer.
 
 ```sh
 npm ci
+npm run rag:up
+npm run rag:models
 npm run dev
 ```
+
+The local RAG stack needs no OpenAI or Lovable API key. `rag:up` starts persistent Qdrant and
+Ollama containers bound to localhost; `rag:models` downloads the embedding and chat models once.
+On each Copilot request, Staffinix converts authorized structured records and extracted resume text
+into overlapping chunks, updates changed documents in Qdrant, performs a tenant-filtered cosine
+similarity query, and asks the local chat model to answer only from the retrieved evidence. If the
+local services are offline, the existing tenant-scoped database summary remains available.
+
+After `npm run build`, use `npm run preview` to run the generated Cloudflare Worker bundle locally
+through Wrangler.
 
 Run the main application checks with:
 
@@ -113,8 +144,10 @@ npm run test:candidate-updates
 npm run test:resume-paths
 npm run test:document-worker
 npm run test:ai-gateway
+npm run test:rag
 npm run test:rbac
 npm run test:list-bounds
+npm run test:interactive-controls
 npm run security:server-auth
 npm run security:auth-bypass
 npm run security:auth-bypass-bundle

@@ -1,7 +1,7 @@
 export const CRM_STATUSES = ["prospect", "active", "inactive"] as const;
 export type CrmStatus = (typeof CRM_STATUSES)[number];
 
-export const CRM_TIERS = ["tier_1", "tier_2", "tier_3"] as const;
+export const CRM_TIERS = ["a", "b", "c"] as const;
 export type CrmTier = (typeof CRM_TIERS)[number];
 
 export const STATUS_LABEL: Record<CrmStatus, string> = {

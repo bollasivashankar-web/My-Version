@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireSubmissionsAccess } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 import { z } from "zod";
 import { writeAudit } from "./audit.server";
@@ -75,7 +75,7 @@ const ListInputSchema = z.object({
 });
 
 export const listSubmissions = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSubmissionsAccess])
   .validator((input: unknown) => ListInputSchema.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
@@ -130,7 +130,7 @@ export const listSubmissions = createServerFn({ method: "POST" })
 
 // ------- get -------
 export const getSubmission = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSubmissionsAccess])
   .validator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
@@ -189,7 +189,7 @@ export const getSubmission = createServerFn({ method: "POST" })
 
 // ------- create -------
 export const createSubmission = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSubmissionsAccess])
   .validator((i: unknown) => SubmissionInputSchema.parse(i))
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
@@ -236,7 +236,7 @@ export const createSubmission = createServerFn({ method: "POST" })
 
 // ------- update basic fields -------
 export const updateSubmission = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSubmissionsAccess])
   .validator((i: unknown) =>
     z
       .object({
@@ -287,7 +287,7 @@ export const updateSubmission = createServerFn({ method: "POST" })
 
 // ------- change stage -------
 export const changeSubmissionStage = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSubmissionsAccess])
   .validator((i: unknown) =>
     z
       .object({
@@ -404,7 +404,7 @@ export const changeSubmissionStage = createServerFn({ method: "POST" })
 
 // ------- add note -------
 export const addSubmissionNote = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSubmissionsAccess])
   .validator((i: unknown) =>
     z.object({ id: z.string().uuid(), message: z.string().trim().min(1).max(4000) }).parse(i),
   )
@@ -430,7 +430,7 @@ export const addSubmissionNote = createServerFn({ method: "POST" })
 
 // ------- mark email sent -------
 export const markSubmissionEmailSent = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSubmissionsAccess])
   .validator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
@@ -464,7 +464,7 @@ export const markSubmissionEmailSent = createServerFn({ method: "POST" })
 
 // ------- delete -------
 export const deleteSubmission = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSubmissionsAccess])
   .validator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
@@ -493,7 +493,7 @@ export const deleteSubmission = createServerFn({ method: "POST" })
 
 // ------- Fact-preserving submission email -------
 export const draftSubmissionEmail = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSubmissionsAccess])
   .validator((i: unknown) =>
     z
       .object({
@@ -591,7 +591,7 @@ export const draftSubmissionEmail = createServerFn({ method: "POST" })
 
 // ------- KPI counts for dashboard -------
 export const getSubmissionKpis = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSubmissionsAccess])
   .handler(async ({ context }) => {
     const { supabase } = context;
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();

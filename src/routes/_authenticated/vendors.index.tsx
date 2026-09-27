@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AppTopbar } from "@/components/app-shell/topbar";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { listVendors } from "@/lib/vendors.functions";
+import { exportVendors, importVendors, listVendors } from "@/lib/vendors.functions";
+import { createVendorCsv, parseVendorCsv } from "@/lib/vendor-csv";
 import {
   CRM_STATUSES,
   CRM_TIERS,
@@ -31,9 +32,10 @@ import {
   TIER_LABEL,
   TIER_STYLES,
 } from "@/lib/crm-constants";
-import { Plus, Search, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Loader2, ChevronLeft, ChevronRight, Download, Upload } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/vendors/")({
   head: () => ({
@@ -47,7 +49,11 @@ export const Route = createFileRoute("/_authenticated/vendors/")({
 
 function VendorsListPage() {
   const listFn = useServerFn(listVendors);
+  const exportFn = useServerFn(exportVendors);
+  const importFn = useServerFn(importVendors);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [tier, setTier] = useState("all");
@@ -73,6 +79,38 @@ function VendorsListPage() {
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / pageSize)) : 1;
 
+  const importMutation = useMutation({
+    mutationFn: (rows: ReturnType<typeof parseVendorCsv>) => importFn({ data: { rows } }),
+    onSuccess: ({ imported }) => {
+      queryClient.invalidateQueries({ queryKey: ["vendors"] });
+      toast.success(`${imported} vendor${imported === 1 ? "" : "s"} imported`);
+    },
+  });
+
+  const exportMutation = useMutation({
+    mutationFn: () => exportFn(),
+    onSuccess: (rows) => {
+      const blob = new Blob(["\uFEFF", createVendorCsv(rows)], {
+        type: "text/csv;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `vendors-${new Date().toISOString().slice(0, 10)}.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success(`${rows.length} vendor${rows.length === 1 ? "" : "s"} exported`);
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Export failed"),
+  });
+
+  const handleImportFile = async (file: File) => {
+    if (file.size > 1024 * 1024) throw new Error("CSV file must be 1 MB or smaller.");
+    const rows = parseVendorCsv(await file.text());
+    if (rows.length > 1000) throw new Error("A single import can contain at most 1,000 vendors.");
+    await importMutation.mutateAsync(rows);
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
       <AppTopbar title="Vendors" />
@@ -81,9 +119,53 @@ function VendorsListPage() {
           title="Vendors"
           description="Sourcing partners and preferred vendors."
           actions={
-            <Button onClick={() => navigate({ to: "/vendors/new" })}>
-              <Plus className="mr-2 h-4 w-4" /> New vendor
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={async (event) => {
+                  const input = event.currentTarget;
+                  const file = input.files?.[0];
+                  if (!file) return;
+                  try {
+                    await handleImportFile(file);
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Import failed");
+                  } finally {
+                    input.value = "";
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={() => importInputRef.current?.click()}
+                disabled={importMutation.isPending}
+              >
+                {importMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="mr-2 h-4 w-4" />
+                )}
+                Import CSV
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => exportMutation.mutate()}
+                disabled={exportMutation.isPending}
+              >
+                {exportMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Export CSV
+              </Button>
+              <Button onClick={() => navigate({ to: "/vendors/new" })}>
+                <Plus className="mr-2 h-4 w-4" /> New vendor
+              </Button>
+            </div>
           }
         />
 
@@ -144,7 +226,7 @@ function VendorsListPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead>Company</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Terms</TableHead>
@@ -186,6 +268,12 @@ function VendorsListPage() {
                     <TableCell>
                       <div className="font-medium text-xs text-foreground">
                         {c.contact_name || "—"}
+                        {c.contact_role && (
+                          <span className="font-normal text-muted-foreground">
+                            {" "}
+                            · {c.contact_role}
+                          </span>
+                        )}
                       </div>
                       <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 mt-0.5">
                         {c.contact_email && <span>{c.contact_email}</span>}

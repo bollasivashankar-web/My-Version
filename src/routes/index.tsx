@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import {
   ArrowRight,
@@ -8,10 +9,12 @@ import {
   Lock,
   Mail,
   Menu,
+  MessageCircle,
   PlayCircle,
   Shield,
   Sparkles,
   X,
+  Loader2,
 } from "lucide-react";
 import { StaffinixLogo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/app-shell/theme-toggle";
@@ -25,7 +28,12 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { submitContactUs } from "@/lib/contact-us.functions";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -56,6 +64,7 @@ const NAV = [
   { id: "workflow", label: "Workflow" },
   { id: "faqs", label: "FAQs" },
   { id: "pricing", label: "Pricing" },
+  { id: "contact", label: "Contact us" },
 ];
 
 const STATS = [
@@ -516,6 +525,36 @@ function LandingPage() {
         </div>
       </section>
 
+      {/* ---------- Contact us ---------- */}
+      <section id="contact" className="scroll-mt-20 border-t border-border bg-surface/40 py-20">
+        <div className="mx-auto grid max-w-5xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+          <div>
+            <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+              Contact us
+            </Badge>
+            <h2 className="mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">
+              Let&apos;s build a faster recruiting desk.
+            </h2>
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:text-base">
+              Tell us what your staffing team needs. We&apos;ll follow up to discuss your workflow,
+              implementation, and the right Staffinix plan.
+            </p>
+            <a
+              href="mailto:hello@staffinix.ai"
+              className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+            >
+              <Mail className="h-4 w-4" /> hello@staffinix.ai
+            </a>
+          </div>
+
+          <Card className="border-border bg-card">
+            <CardContent className="p-6 sm:p-8">
+              <ContactUsForm />
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
       {/* ---------- CTA ---------- */}
       <section className="px-4 pb-20 sm:px-6">
         <div className="mx-auto max-w-6xl overflow-hidden rounded-2xl border border-primary/30 bg-primary/10 px-6 py-14 text-center">
@@ -616,6 +655,129 @@ function FooterCol({ title, links }: { title: string; links: { label: string; id
         ))}
       </ul>
     </div>
+  );
+}
+
+function ContactUsForm() {
+  const submitContactUsFn = useServerFn(submitContactUs);
+  const [name, setName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [email, setEmail] = useState("");
+  const [description, setDescription] = useState("");
+  const [website, setWebsite] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (loading) return;
+
+    setLoading(true);
+    try {
+      await submitContactUsFn({
+        data: { name, phoneNumber, email, description, website },
+      });
+      setName("");
+      setPhoneNumber("");
+      setEmail("");
+      setDescription("");
+      setWebsite("");
+      toast.success("Thanks — your message has been sent.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "We could not send your message.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <MessageCircle className="h-4 w-4 text-primary" /> Tell us how we can help
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="contact-name">Name</Label>
+          <Input
+            id="contact-name"
+            name="name"
+            autoComplete="name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            disabled={loading}
+            required
+            maxLength={120}
+            placeholder="Your name"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="contact-phone">Phone number</Label>
+          <Input
+            id="contact-phone"
+            name="tel"
+            type="tel"
+            autoComplete="tel"
+            inputMode="tel"
+            value={phoneNumber}
+            onChange={(event) => setPhoneNumber(event.target.value)}
+            disabled={loading}
+            required
+            maxLength={30}
+            placeholder="+91 98765 43210"
+          />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="contact-email">Email</Label>
+        <Input
+          id="contact-email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          disabled={loading}
+          required
+          maxLength={254}
+          placeholder="you@company.com"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="contact-description">Description</Label>
+        <Textarea
+          id="contact-description"
+          name="description"
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          disabled={loading}
+          required
+          minLength={10}
+          maxLength={2000}
+          rows={5}
+          placeholder="Tell us how we can help."
+        />
+      </div>
+      <div
+        className="absolute -left-[9999px] top-auto h-px w-px overflow-hidden"
+        aria-hidden="true"
+      >
+        <Label htmlFor="contact-website">Website</Label>
+        <Input
+          id="contact-website"
+          name="website"
+          tabIndex={-1}
+          autoComplete="off"
+          value={website}
+          onChange={(event) => setWebsite(event.target.value)}
+        />
+      </div>
+      <Button type="submit" disabled={loading} className="w-full sm:w-auto">
+        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {loading ? "Sending..." : "Send message"}
+      </Button>
+    </form>
   );
 }
 

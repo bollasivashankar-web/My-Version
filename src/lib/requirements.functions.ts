@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireRequirementsAccess } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import {
@@ -61,7 +61,7 @@ const ListInputSchema = z.object({
 });
 
 export const listRequirements = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireRequirementsAccess])
   .validator((input: unknown) => ListInputSchema.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
@@ -71,7 +71,7 @@ export const listRequirements = createServerFn({ method: "POST" })
     let q = supabase
       .from("requirements")
       .select(
-        "id, title, status, priority, location, primary_technology, rate_min, rate_max, rate_type, currency, visa_types, created_at, updated_at, assigned_to, created_by, client_id, vendor_id",
+        "id, title, status, priority, location, work_mode, primary_technology, rate_min, rate_max, rate_type, currency, visa_types, min_experience_years, max_experience_years, duration, created_at, updated_at, assigned_to, created_by, client_id, vendor_id",
         { count: "exact" },
       )
       .order("created_at", { ascending: false })
@@ -150,7 +150,7 @@ export const listRequirements = createServerFn({ method: "POST" })
 // ------------- get one -------------
 
 export const getRequirement = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireRequirementsAccess])
   .validator((input: unknown) => z.object({ id: z.string() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
@@ -210,7 +210,7 @@ export const getRequirement = createServerFn({ method: "POST" })
 // ------------- create -------------
 
 export const createRequirement = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireRequirementsAccess])
   .validator((input: unknown) => RequirementInputSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
@@ -258,7 +258,7 @@ const UpdateSchema = RequirementInputSchema.partial().extend({
 });
 
 export const updateRequirement = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireRequirementsAccess])
   .validator((input: unknown) => UpdateSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
@@ -304,7 +304,7 @@ export const updateRequirement = createServerFn({ method: "POST" })
 // ------------- delete -------------
 
 export const deleteRequirement = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireRequirementsAccess])
   .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
@@ -324,7 +324,7 @@ export const deleteRequirement = createServerFn({ method: "POST" })
 // ------------- assign -------------
 
 export const assignRequirement = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireRequirementsAccess])
   .validator((input: unknown) =>
     z
       .object({
@@ -357,7 +357,7 @@ export const assignRequirement = createServerFn({ method: "POST" })
 // ------------- set status -------------
 
 export const setRequirementStatus = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireRequirementsAccess])
   .validator((input: unknown) =>
     z.object({ id: z.string().uuid(), status: z.enum(STATUSES) }).parse(input),
   )
@@ -382,12 +382,12 @@ export const setRequirementStatus = createServerFn({ method: "POST" })
 // ------------- clients / vendors / recruiters lookups -------------
 
 export const listLookups = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireRequirementsAccess])
   .handler(async ({ context }) => {
     const { supabase } = context;
     const [clients, vendors, recruiters] = await Promise.all([
       supabase.from("clients").select("id, name").order("name"),
-      supabase.from("vendors").select("id, name").order("name"),
+      supabase.from("vendors").select("id, name, contact_email, contact_phone").order("name"),
       supabase
         .from("profiles")
         .select("id, full_name, email, is_active")
@@ -402,7 +402,7 @@ export const listLookups = createServerFn({ method: "GET" })
   });
 
 export const createClient = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireRequirementsAccess])
   .validator((input: unknown) =>
     z
       .object({
@@ -425,7 +425,7 @@ export const createClient = createServerFn({ method: "POST" })
   });
 
 export const createVendor = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireRequirementsAccess])
   .validator((input: unknown) =>
     z
       .object({
@@ -524,7 +524,7 @@ Rules:
 - No prose outside JSON.`;
 
 export const parseJobDescription = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireRequirementsAccess])
   .validator((input: unknown) => ParseInputSchema.parse(input))
   .handler(async ({ data, context }) => {
     let extractedText = data.text ?? null;
