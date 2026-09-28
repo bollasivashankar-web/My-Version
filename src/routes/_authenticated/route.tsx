@@ -2,7 +2,9 @@ import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/rea
 import { useEffect, useRef } from "react";
 
 import { AppSidebar } from "@/components/app-shell/sidebar";
-import { CopilotDrawer } from "@/components/ai/copilot-drawer";
+import { MobileNav } from "@/components/app-shell/mobile-nav";
+import { PageTransition } from "@/components/motion/page-transition";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 import { useSession } from "@/hooks/use-session";
 import { useProfile } from "@/hooks/use-profile";
 import { canAccessPath } from "@/lib/feature-access";
@@ -150,19 +152,15 @@ function AuthenticatedLayout() {
    */
   if (!ready || !user || isSigningOut || profileQuery.isPending || denied) {
     return (
-      <div
-        className="flex min-h-screen items-center justify-center bg-background"
-        aria-live="polite"
-        aria-busy="true"
-      >
-        <span className="text-sm text-muted-foreground">
-          {isSigningOut
-            ? "Signing out..."
+      <LoadingOverlay
+        label={
+          isSigningOut
+            ? "Signing out…"
             : profileQuery.isPending || denied
-              ? "Checking access..."
-              : "Verifying session..."}
-        </span>
-      </div>
+              ? "Checking access…"
+              : "Verifying session…"
+        }
+      />
     );
   }
 
@@ -181,17 +179,18 @@ function AuthenticatedLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="app-ambient flex min-h-screen bg-background">
       {/* Main application navigation */}
       <AppSidebar />
 
       {/* Main content area */}
-      <main className="flex min-w-0 flex-1 flex-col">
-        <Outlet />
+      <main className="flex min-w-0 flex-1 flex-col pb-24 md:pb-0">
+        <PageTransition routeKey={location.pathname}>
+          <Outlet />
+        </PageTransition>
       </main>
 
-      {/* AI assistant / Copilot drawer */}
-      <CopilotDrawer />
+      <MobileNav />
     </div>
   );
 }

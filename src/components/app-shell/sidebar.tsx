@@ -1,87 +1,12 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  LayoutDashboard,
-  FileText,
-  Users,
-  Trophy,
-  Building2,
-  Handshake,
-  UsersRound,
-  Crown,
-  Code2,
-  Wand2,
-  KanbanSquare,
-  Sparkles,
-  UserRound,
-  ScrollText,
-  ShieldCheck,
-  CalendarClock,
-} from "lucide-react";
+import { motion } from "motion/react";
+import { Crown, ShieldCheck, UserRound } from "lucide-react";
 import { StaffinixLogo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { useTenancy } from "@/hooks/use-tenancy";
-import { canAccessFeature, type Feature, type FeatureAccessIdentity } from "@/lib/feature-access";
-
-type NavItem = {
-  to: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  feature: Feature;
-};
-
-const NAV_GROUPS: ReadonlyArray<{ section: string; items: readonly NavItem[] }> = [
-  {
-    section: "Workspace",
-    items: [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, feature: "dashboard" }],
-  },
-  {
-    section: "Talent Operations",
-    items: [
-      { to: "/requirements", label: "Requisitions", icon: FileText, feature: "requirements" },
-      { to: "/candidates", label: "Candidates", icon: Users, feature: "candidates" },
-      { to: "/matching", label: "AI Matching", icon: Sparkles, feature: "matching" },
-      { to: "/tailoring", label: "Resume Tailoring", icon: Wand2, feature: "tailoring" },
-      {
-        to: "/submissions/board",
-        label: "Pipeline Tracker",
-        icon: KanbanSquare,
-        feature: "submissions",
-      },
-      { to: "/interviews", label: "Interviews", icon: CalendarClock, feature: "interviews" },
-    ],
-  },
-  {
-    section: "Relationships & Delivery",
-    items: [
-      { to: "/clients", label: "Client Accounts", icon: Building2, feature: "clients" },
-      { to: "/vendors", label: "Vendors", icon: Handshake, feature: "vendors" },
-      { to: "/placements", label: "Placements & Revenue", icon: Trophy, feature: "placements" },
-      { to: "/recruiters", label: "Recruiter Team", icon: UsersRound, feature: "recruiters" },
-    ],
-  },
-  {
-    section: "Administration",
-    items: [
-      { to: "/users", label: "Company Team", icon: UserRound, feature: "users" },
-      { to: "/audit", label: "Audit Logs", icon: ScrollText, feature: "audit" },
-      { to: "/developer", label: "Dev Console & APIs", icon: Code2, feature: "developer" },
-      { to: "/architecture", label: "Architecture", icon: ShieldCheck, feature: "developer" },
-    ],
-  },
-  {
-    section: "SaaS Administration",
-    items: [
-      { to: "/platform", label: "Platform Console", icon: Crown, feature: "platform" },
-      {
-        to: "/tenants/new",
-        label: "New Tenant Registration",
-        icon: Building2,
-        feature: "platform",
-      },
-    ],
-  },
-];
+import { canAccessFeature, type FeatureAccessIdentity } from "@/lib/feature-access";
+import { NAV_GROUPS, type NavItem } from "@/components/app-shell/nav-config";
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -101,12 +26,12 @@ export function AppSidebar() {
   const isUnprovisioned = identity.roles.length === 0 && !identity.platformRole;
 
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex h-screen sticky top-0 overflow-hidden">
-      <div className="flex h-14 items-center border-b border-sidebar-border px-4">
+    <aside className="glass-strong sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-hidden rounded-none border-y-0 border-l-0 text-sidebar-foreground md:flex">
+      <div className="flex h-16 items-center border-b border-sidebar-border px-5">
         <StaffinixLogo />
       </div>
 
-      <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 space-y-7 overflow-y-auto px-3 py-5">
         {currentNavGroups.map((group) => (
           <NavGroup
             key={group.section}
@@ -131,11 +56,11 @@ export function AppSidebar() {
         )}
       </nav>
 
-      <div className="border-t border-sidebar-border p-3 space-y-2">
+      <div className="space-y-2 border-t border-sidebar-border p-3">
         <Link
           to="/settings/profile"
           className={cn(
-            "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            "flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-sidebar-foreground/80 transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
             pathname.startsWith("/settings") && "bg-sidebar-accent text-sidebar-accent-foreground",
           )}
         >
@@ -143,7 +68,7 @@ export function AppSidebar() {
           Profile
         </Link>
         {tenancy?.tenant && (
-          <div className="truncate rounded-md border border-sidebar-border px-2.5 py-1.5 text-xs text-sidebar-foreground/70">
+          <div className="truncate rounded-xl border border-sidebar-border bg-sidebar-accent/20 px-3 py-2 text-xs text-sidebar-foreground/70">
             {tenancy.tenant.name}
             <span className="ml-1 capitalize text-sidebar-foreground/40">
               · {tenancy.tenant.plan}
@@ -151,7 +76,7 @@ export function AppSidebar() {
           </div>
         )}
 
-        <div className="rounded-lg border border-sidebar-border/80 bg-sidebar-accent/30 p-2">
+        <div className="rounded-xl border border-sidebar-border/80 bg-sidebar-accent/30 p-2.5 shadow-inner">
           <div className="flex items-center justify-between text-[11px] font-semibold text-sidebar-foreground">
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="h-3.5 w-3.5 text-primary" />
@@ -182,7 +107,7 @@ function NavGroup({
   if (items.length === 0) return null;
   return (
     <div>
-      <p className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40">
+      <p className="px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-sidebar-foreground/40">
         {title}
       </p>
       <div className="mt-1 space-y-0.5">
@@ -195,14 +120,21 @@ function NavGroup({
               key={item.to}
               to={item.to}
               className={cn(
-                "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                "relative flex items-center gap-2.5 overflow-hidden rounded-xl px-3 py-2 text-xs font-medium transition-all duration-200",
                 active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+                  ? "text-sidebar-accent-foreground font-semibold"
                   : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
               )}
             >
-              <Icon className="h-4 w-4 shrink-0" />
-              <span>{item.label}</span>
+              {active && (
+                <motion.span
+                  layoutId="sidebar-active-item"
+                  className="absolute inset-0 rounded-xl border border-primary/15 bg-sidebar-accent shadow-[inset_0_1px_0_color-mix(in_oklab,var(--foreground)_8%,transparent)]"
+                  transition={{ type: "spring", stiffness: 430, damping: 34 }}
+                />
+              )}
+              <Icon className={cn("relative h-4 w-4 shrink-0", active && "text-primary")} />
+              <span className="relative">{item.label}</span>
             </Link>
           );
         })}

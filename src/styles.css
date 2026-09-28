@@ -8,7 +8,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Staffinix design system — Linear-inspired dark.
+ * Staffinix design system — premium, iOS-inspired operational UI.
  * All colors are semantic tokens defined here. Components must never
  * hard-code colors; use tokens or shadcn variants instead.
  */
@@ -22,6 +22,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 14px);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -61,15 +62,15 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
 
-  --shadow-sm: 0 1px 2px 0 oklch(0 0 0 / 0.4);
-  --shadow-md: 0 4px 12px -2px oklch(0 0 0 / 0.5);
-  --shadow-lg: 0 12px 32px -8px oklch(0 0 0 / 0.6);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.12), 0 1px 8px oklch(0 0 0 / 0.08);
+  --shadow-md: 0 12px 32px -18px oklch(0 0 0 / 0.36), 0 2px 10px oklch(0 0 0 / 0.1);
+  --shadow-lg: 0 24px 64px -24px oklch(0 0 0 / 0.48), 0 8px 22px -12px oklch(0 0 0 / 0.24);
   --shadow-glow: 0 0 32px -4px var(--primary-glow);
 }
 
 /* Light theme — cool paper surfaces with the same blue accent */
 :root {
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 
   --background: oklch(0.985 0.004 250);
   --foreground: oklch(0.22 0.02 260);
@@ -117,10 +118,17 @@
   --chart-3: oklch(0.66 0.16 165);
   --chart-4: oklch(0.74 0.15 75);
   --chart-5: oklch(0.62 0.17 300);
+
+  --glass: oklch(1 0 0 / 0.72);
+  --glass-strong: oklch(1 0 0 / 0.86);
+  --glass-border: oklch(1 0 0 / 0.72);
+  --glass-highlight: oklch(1 0 0 / 0.92);
+  --ambient-a: oklch(0.75 0.13 230 / 0.22);
+  --ambient-b: oklch(0.72 0.13 295 / 0.14);
 }
 
 .dark {
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 
   /* Base surfaces — Linear-style layered dark */
   --background: oklch(0.155 0.008 265);
@@ -169,6 +177,13 @@
   --chart-3: oklch(0.72 0.17 165);
   --chart-4: oklch(0.78 0.15 75);
   --chart-5: oklch(0.68 0.17 300);
+
+  --glass: oklch(0.2 0.012 265 / 0.68);
+  --glass-strong: oklch(0.19 0.012 265 / 0.88);
+  --glass-border: oklch(1 0 0 / 0.12);
+  --glass-highlight: oklch(1 0 0 / 0.16);
+  --ambient-a: oklch(0.55 0.18 250 / 0.16);
+  --ambient-b: oklch(0.56 0.17 305 / 0.1);
 }
 
 @layer base {
@@ -182,6 +197,36 @@
     font-family: var(--font-sans);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
+    min-width: 320px;
+    min-height: 100%;
+    overflow-x: clip;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background-image:
+      radial-gradient(circle at 72% -10%, var(--ambient-a), transparent 34rem),
+      radial-gradient(circle at 18% 30%, var(--ambient-b), transparent 32rem);
+    background-attachment: fixed;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  button,
+  a,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
+    background-clip: padding-box;
   }
   ::selection {
     background-color: color-mix(in oklab, var(--primary) 30%, transparent);
@@ -226,5 +271,101 @@
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+  }
+
+  .app-ambient {
+    position: relative;
+    isolation: isolate;
+    background:
+      radial-gradient(circle at 100% 0%, var(--ambient-a), transparent 34rem),
+      radial-gradient(circle at 0% 72%, var(--ambient-b), transparent 32rem), var(--background);
+  }
+  .app-ambient::before {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    content: "";
+    opacity: 0.24;
+    background-image:
+      linear-gradient(color-mix(in oklab, var(--foreground) 4%, transparent) 1px, transparent 1px),
+      linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--foreground) 4%, transparent) 1px,
+        transparent 1px
+      );
+    background-size: 48px 48px;
+    mask-image: linear-gradient(to bottom, black, transparent 72%);
+  }
+  .glass {
+    border: 1px solid var(--glass-border);
+    background: var(--glass);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 20px 50px -30px oklch(0 0 0 / 0.62);
+    backdrop-filter: blur(22px) saturate(145%);
+    -webkit-backdrop-filter: blur(22px) saturate(145%);
+  }
+  .glass-strong {
+    border: 1px solid var(--glass-border);
+    background: var(--glass-strong);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 24px 60px -28px oklch(0 0 0 / 0.68);
+    backdrop-filter: blur(28px) saturate(155%);
+    -webkit-backdrop-filter: blur(28px) saturate(155%);
+  }
+  .surface-panel {
+    border: 1px solid var(--border);
+    background: color-mix(in oklab, var(--card) 96%, var(--primary) 4%);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, var(--foreground) 7%, transparent),
+      var(--shadow-sm);
+  }
+  .interactive-lift {
+    transition:
+      transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      background-color 180ms ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .interactive-lift:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+  }
+  .interactive-lift:active {
+    transform: scale(0.98);
+  }
+  .safe-bottom {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .glass-strong {
+    background: var(--popover);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
   }
 }

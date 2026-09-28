@@ -22,9 +22,14 @@ import {
   Sparkles,
   UserCheck,
   HelpCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
+import { StaggerContainer } from "@/components/motion/page-transition";
+import { staggerItem } from "@/components/motion/variants";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AreaChart,
   Area,
@@ -209,49 +214,91 @@ function UnifiedDashboardPage() {
     Hired: t.hired,
   }));
 
+  if (overviewLoading || activityLoading) {
+    return (
+      <>
+        <AppTopbar title="Dashboard" />
+        <main className="flex-1 space-y-6 px-4 pb-6 pt-2 sm:px-6 md:px-8">
+          <div className="space-y-2 border-b border-border/80 pb-6">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-full max-w-xl" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <Skeleton key={index} className="h-28 rounded-2xl" />
+            ))}
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Skeleton className="h-80 rounded-2xl lg:col-span-2" />
+            <Skeleton className="h-80 rounded-2xl" />
+          </div>
+        </main>
+      </>
+    );
+  }
+
   return (
     <TooltipProvider>
       <AppTopbar title="Dashboard" />
-      <main className="flex-1 space-y-6 p-6 md:p-8">
+      <main className="flex-1 space-y-6 px-4 pb-6 pt-2 sm:px-6 md:px-8">
         <PageHeader title={`Welcome back, ${firstName}`} description={pageDescription} />
 
+        {(overviewError || activityError) && (
+          <div
+            className="glass flex items-start gap-3 rounded-xl border-destructive/25 p-3.5 text-sm"
+            role="alert"
+          >
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+            <div>
+              <p className="font-semibold text-foreground">Some dashboard data is unavailable</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                The rest of your workspace is still available. Refresh to retry the live metrics.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* 8 KPIs Grid */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
+        <StaggerContainer className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
           {kpiList.map((k) => {
             const Icon = k.icon;
             return (
-              <Link key={k.label} to={k.to} className="group">
-                <Card className="border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-xs text-muted-foreground">{k.label}</p>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <HelpCircle className="h-3 w-3 text-muted-foreground/60 cursor-pointer" />
-                          </TooltipTrigger>
-                          <TooltipContent className="text-xs">{k.hint}</TooltipContent>
-                        </Tooltip>
+              <motion.div key={k.label} variants={staggerItem}>
+                <Link to={k.to} className="group block h-full">
+                  <Card className="interactive-lift h-full hover:border-primary/35">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs text-muted-foreground">{k.label}</p>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="h-3 w-3 text-muted-foreground/60 cursor-pointer" />
+                            </TooltipTrigger>
+                            <TooltipContent className="text-xs">{k.hint}</TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <div className="rounded-lg border border-primary/10 bg-primary/10 p-2 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                          <Icon className="h-4 w-4" />
+                        </div>
                       </div>
-                      <div className="rounded-md bg-primary/10 p-1.5 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                        <Icon className="h-4 w-4" />
+                      <div className="mt-2 flex items-baseline justify-between">
+                        <p className="text-2xl font-bold tracking-tight text-foreground">
+                          {k.value}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={cn("text-[10px] font-medium", k.badgeClass)}
+                        >
+                          {k.badge}
+                        </Badge>
                       </div>
-                    </div>
-                    <div className="mt-2 flex items-baseline justify-between">
-                      <p className="text-2xl font-bold tracking-tight text-foreground">{k.value}</p>
-                      <Badge
-                        variant="outline"
-                        className={cn("text-[10px] font-medium", k.badgeClass)}
-                      >
-                        {k.badge}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
+                    </CardContent>
+                  </Card>
+                </Link>
+              </motion.div>
             );
           })}
-        </div>
+        </StaggerContainer>
 
         {/* Section 2: Recent Trends & Pipeline Funnel */}
         <section className="grid gap-4 lg:grid-cols-3">
@@ -275,8 +322,8 @@ function UnifiedDashboardPage() {
                   <AreaChart data={trendData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
                     <defs>
                       <linearGradient id="grad-sub" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                        <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="grad-short" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3} />
@@ -285,24 +332,25 @@ function UnifiedDashboardPage() {
                     </defs>
                     <XAxis
                       dataKey="label"
-                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                     />
                     <YAxis
-                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                       allowDecimals={false}
                     />
                     <RechartsTooltip
                       contentStyle={{
-                        background: "hsl(var(--popover))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: 6,
+                        background: "var(--popover)",
+                        color: "var(--popover-foreground)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 12,
                         fontSize: 12,
                       }}
                     />
                     <Area
                       type="monotone"
                       dataKey="Submitted"
-                      stroke="hsl(var(--primary))"
+                      stroke="var(--primary)"
                       fill="url(#grad-sub)"
                       strokeWidth={2}
                     />
@@ -363,18 +411,19 @@ function UnifiedDashboardPage() {
                     >
                       <XAxis
                         dataKey="name"
-                        tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                         tickFormatter={(v) => STATUS_LABEL[v as keyof typeof STATUS_LABEL] ?? v}
                       />
                       <YAxis
-                        tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                         allowDecimals={false}
                       />
                       <RechartsTooltip
                         contentStyle={{
-                          background: "hsl(var(--popover))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: 6,
+                          background: "var(--popover)",
+                          color: "var(--popover-foreground)",
+                          border: "1px solid var(--border)",
+                          borderRadius: 12,
                           fontSize: 12,
                         }}
                         labelFormatter={(v) =>

@@ -6,6 +6,7 @@ import { AppTopbar } from "@/components/app-shell/topbar";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -297,12 +298,16 @@ function BenchCandidatesPage() {
         <Card className="border-border bg-card">
           <CardContent className="grid gap-3 p-4 md:grid-cols-4">
             <div className="md:col-span-1">
-              <Input
+              <SearchInput
                 placeholder="Search candidate name, email, skills…"
                 className="text-xs"
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
+                  setPage(1);
+                }}
+                onClear={() => {
+                  setSearch("");
                   setPage(1);
                 }}
               />
