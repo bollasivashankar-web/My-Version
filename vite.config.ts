@@ -24,7 +24,8 @@ export default defineConfig({
       },
     },
     scheduledTasks: {
-      "* * * * *": "candidate-embeddings",
+      // Vercel Hobby permits cron jobs to run at most once per day.
+      "0 0 * * *": "candidate-embeddings",
     },
   } as unknown as { preset?: string },
   vite: {
