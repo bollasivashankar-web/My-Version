@@ -1,5 +1,6 @@
 # Logs
 .env
+!.env.example
 logs
 *.log
 npm-debug.log*
@@ -33,6 +34,7 @@ dist-ssr
 *.sw?
 
 supabase/.temp/
+supabase/.branches/
 
 # Legacy local copy; the canonical application is this directory.
 My-Version/

@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireDashboardAccess } from "@/integrations/supabase/auth-middleware";
+import { resolveProfileAvatarUrls } from "@/lib/profile-avatar.server";
 
 const CountSchema = z.number().int().nonnegative();
 const NamedCountSchema = z
@@ -117,7 +118,11 @@ export const getDashboardOverview = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase.rpc("dashboard_overview");
     if (error) throw new Error(`Unable to load dashboard overview: ${error.message}`);
     if (!data) throw new Error("Dashboard overview is unavailable for this user");
-    return DashboardOverviewSchema.parse(data);
+    const overview = DashboardOverviewSchema.parse(data);
+    return {
+      ...overview,
+      recruiters: await resolveProfileAvatarUrls(context.supabase, overview.recruiters),
+    };
   });
 
 export const getRecentActivity = createServerFn({ method: "GET" })

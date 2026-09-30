@@ -62,6 +62,7 @@ for (const file of productionFiles) {
 const candidates = readFileSync(resolve(root, "src/lib/candidates.functions.ts"), "utf8");
 const requirements = readFileSync(resolve(root, "src/lib/requirements.functions.ts"), "utf8");
 const copilot = readFileSync(resolve(root, "src/lib/copilot.functions.ts"), "utf8");
+const rag = readFileSync(resolve(root, "src/lib/rag.server.ts"), "utf8");
 for (const [name, source] of [
   ["candidate parser", candidates],
   ["requirement parser", requirements],
@@ -97,6 +98,13 @@ assert.match(
 assert.match(copilot, /UNTRUSTED_DOCUMENT_SYSTEM_RULES/, "Copilot lacks injection-resistant rules");
 assert.match(copilot, /requestStructuredAiOutput/, "Copilot lacks schema-bound AI output");
 assert.match(copilot, /Never make or recommend automatic hiring\/rejection decisions/);
+assert.match(rag, /next_page_offset/, "Qdrant synchronization does not paginate scroll results");
+assert.match(rag, /tenantFilter\(tenantId\)/, "Qdrant operations lack a verified tenant filter");
+assert.doesNotMatch(
+  rag,
+  /limit:\s*2_000/,
+  "Qdrant synchronization must not assume a fixed scan limit is complete",
+);
 
 const worker = readFileSync(resolve(root, "workers/document-processor/server.mjs"), "utf8");
 const documentJob = readFileSync(

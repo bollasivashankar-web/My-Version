@@ -1,6 +1,6 @@
 services:
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.19.1
     container_name: staffinix-qdrant
     restart: unless-stopped
     ports:
@@ -10,7 +10,7 @@ services:
       - staffinix_qdrant_data:/qdrant/storage
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.34.1
     container_name: staffinix-ollama
     restart: unless-stopped
     ports:

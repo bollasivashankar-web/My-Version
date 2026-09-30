@@ -6,6 +6,7 @@ import {
   UNTRUSTED_DOCUMENT_SYSTEM_RULES,
 } from "@/lib/ai-gateway.server";
 import { providedCandidateChildKeys } from "@/lib/candidate-child-updates";
+import { runWithAiUsageGuard } from "@/lib/ai-usage.server";
 import { processDocumentInIsolatedWorker } from "@/lib/document-processing.server";
 import { isCanonicalResumePathFor } from "@/lib/resume-storage-path";
 import { z } from "zod";
@@ -855,7 +856,7 @@ export const parseAndCreateCandidate = createServerFn({ method: "POST" })
   .middleware([requireCandidatesAccess])
   .validator((input: unknown) => ParseResumeSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
 
     let uploadedResume:
       | {
@@ -947,19 +948,21 @@ export const parseAndCreateCandidate = createServerFn({ method: "POST" })
       });
     }
 
-    const p = await requestStructuredAiOutput(
-      {
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: `${UNTRUSTED_DOCUMENT_SYSTEM_RULES}\nExtract candidate facts only. Return only the requested JSON object.`,
-          },
-          { role: "user", content: userContent },
-        ],
-        response_format: { type: "json_object" },
-      },
-      CandidateAiOutputSchema,
+    const p = await runWithAiUsageGuard(supabase, userId, "candidate_parse", () =>
+      requestStructuredAiOutput(
+        {
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            {
+              role: "system",
+              content: `${UNTRUSTED_DOCUMENT_SYSTEM_RULES}\nExtract candidate facts only. Return only the requested JSON object.`,
+            },
+            { role: "user", content: userContent },
+          ],
+          response_format: { type: "json_object" },
+        },
+        CandidateAiOutputSchema,
+      ),
     );
 
     const input: CandidateInput = CandidateInputSchema.parse({
@@ -1087,7 +1090,12 @@ export const semanticSearchCandidates = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const { generateQueryEmbedding } = await import("@/lib/embedding-service.server");
-    const { embedding } = await generateQueryEmbedding(data.query);
+    const { embedding } = await runWithAiUsageGuard(
+      supabase,
+      context.userId,
+      "semantic_search",
+      () => generateQueryEmbedding(data.query),
+    );
     const vecLiteral = `[${embedding.join(",")}]`;
     const { data: matches, error } = await supabase.rpc("search_candidates_semantic", {
       _query_embedding: vecLiteral as unknown as string,
@@ -1130,6 +1138,8 @@ export const embedRequirement = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const { refreshRequirementEmbedding } = await import("@/lib/embedding-service.server");
-    await refreshRequirementEmbedding(supabase, data.id);
+    await runWithAiUsageGuard(supabase, context.userId, "requirement_embedding", () =>
+      refreshRequirementEmbedding(supabase, data.id),
+    );
     return { ok: true };
   });

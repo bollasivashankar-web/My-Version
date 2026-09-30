@@ -1697,6 +1697,7 @@ export type Database = {
       };
       dashboard_overview: { Args: never; Returns: Json };
       platform_console_overview: { Args: never; Returns: Json };
+      reserve_ai_usage: { Args: { _operation: string }; Returns: Json };
       current_tenant_id: { Args: never; Returns: string };
       fail_candidate_embedding_job: {
         Args: { _error: string; _job_id: string };

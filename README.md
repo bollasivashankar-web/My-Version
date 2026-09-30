@@ -57,7 +57,9 @@ scripts/                      release-time architecture and security guards
 - Every protected server function authenticates the caller; role changes and platform operations
   also enforce explicit server-side RBAC.
 - Password and OAuth login call Supabase Auth directly. Failed authentication terminates the flow,
-  and an authenticated account without an active application profile is immediately signed out.
+  and an authenticated account without an active application profile or authorized work email is
+  immediately signed out. Existing consumer-domain launch accounts must be listed as exact
+  server-side `AUTH_EMAIL_ALLOWLIST` exceptions.
 - Password recovery uses Supabase recovery links and updates the password only inside a verified
   recovery session. New signups receive no tenant or application role until an administrator
   explicitly provisions them.
@@ -92,15 +94,21 @@ For the web application:
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Browser       | Supabase publishable key; never use a secret key   |
 | `SUPABASE_URL`                  | Server        | Supabase project URL                               |
 | `SUPABASE_PUBLISHABLE_KEY`      | Server        | Publishable key used with the caller's session     |
+| `AUTH_ALLOWED_WORK_EMAIL_DOMAINS` | Server      | Optional comma-separated strict work-domain list   |
+| `AUTH_EMAIL_ALLOWLIST`          | Server        | Optional comma-separated exact email exceptions    |
 | `LOVABLE_API_KEY`               | Server        | AI gateway credential                              |
 | `DOCUMENT_PROCESSOR_URL`        | Server        | Private URL for the document worker                |
 | `DOCUMENT_PROCESSOR_TOKEN`      | Server/worker | Shared secret of at least 32 random characters     |
-| `QDRANT_URL`                    | Server        | Qdrant REST URL; defaults to `127.0.0.1:6333`      |
+| `QDRANT_URL`                    | Server        | Qdrant REST URL; local default only in development |
 | `QDRANT_API_KEY`                | Server        | Optional key for a remote Qdrant deployment        |
 | `QDRANT_COLLECTION`             | Server        | Collection name; defaults to `staffinix_knowledge` |
-| `OLLAMA_URL`                    | Server        | Ollama API URL; defaults to `127.0.0.1:11434`      |
+| `OLLAMA_URL`                    | Server        | Ollama API URL; local default only in development  |
 | `OLLAMA_EMBED_MODEL`            | Server        | Embedding model; defaults to `embeddinggemma`      |
 | `OLLAMA_CHAT_MODEL`             | Server        | Answer model; defaults to `gemma3:4b`              |
+
+Copy `.env.example` to a local ignored environment file and replace placeholders through your
+secret manager. Production Qdrant, Ollama, and document-worker endpoints must use HTTPS; local
+development may use loopback HTTP. Never place a secret/service-role key in a `VITE_` variable.
 
 The document worker also requires `CLAMAV_HOST`; `CLAMAV_PORT` defaults to `3310` and `PORT`
 defaults to `8788`. See [workers/document-processor/README.md](workers/document-processor/README.md)
@@ -109,6 +117,12 @@ for its isolation and resource-limit requirements.
 Before production launch, enable Supabase Auth leaked-password protection in the project dashboard.
 The database advisor reports this separately because it is an Auth project setting, not a SQL
 migration.
+
+Protected application APIs independently enforce the work-email policy after Supabase verifies the
+session. Set `AUTH_ALLOWED_WORK_EMAIL_DOMAINS` in each deployed server environment to turn the
+policy into an explicit domain allowlist. For defense in depth, configure an equivalent Supabase
+Auth Before User Created hook so disallowed identities are rejected before an Auth user is created;
+the application boundary remains authoritative even when that optional project-level hook is absent.
 
 ## Local development
 
@@ -135,6 +149,9 @@ Run the main application checks with:
 
 ```sh
 npm run lint
+npm run typecheck
+npm run test:unit
+npm run security:static
 npm run build
 npm run test:auth
 npm run test:input-validation

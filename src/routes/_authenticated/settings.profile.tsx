@@ -25,8 +25,8 @@ import { useSession } from "@/hooks/use-session";
 import { useRoleLevel } from "@/hooks/use-role-level";
 import { supabase } from "@/integrations/supabase/client";
 import { updateMyProfile } from "@/lib/profile.functions";
+import { createProfileAvatarReference, PROFILE_AVATAR_BUCKET } from "@/lib/profile-avatar";
 
-const PROFILE_AVATAR_BUCKET = "profile-avatars";
 const PROFILE_AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 const PROFILE_AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -62,6 +62,7 @@ function ProfileSettingsPage() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarUrlDirty, setAvatarUrlDirty] = useState(false);
 
   const emailFromSession = user?.email || "";
   const nameFromSession =
@@ -94,10 +95,11 @@ function ProfileSettingsPage() {
         data: {
           full_name: fullName.trim() || undefined,
           phone: phone.trim() || null,
-          avatar_url: avatarUrl.trim() || null,
+          ...(avatarUrlDirty ? { avatar_url: avatarUrl.trim() || null } : {}),
         },
       }),
     onSuccess: () => {
+      setAvatarUrlDirty(false);
       qc.invalidateQueries({ queryKey: ["me"] });
       toast.success("Profile updated successfully");
     },
@@ -124,13 +126,19 @@ function ProfileSettingsPage() {
         });
       if (uploadError) throw new Error(`Unable to upload profile picture: ${uploadError.message}`);
 
-      const { data: publicUrl } = supabase.storage.from(PROFILE_AVATAR_BUCKET).getPublicUrl(path);
-      const nextAvatarUrl = `${publicUrl.publicUrl}?v=${Date.now()}`;
-      await updateFn({ data: { avatar_url: nextAvatarUrl } });
-      return nextAvatarUrl;
+      const { data: signed, error: signError } = await supabase.storage
+        .from(PROFILE_AVATAR_BUCKET)
+        .createSignedUrl(path, 10 * 60);
+      if (signError || !signed?.signedUrl) {
+        throw new Error("The photo was uploaded, but a private preview could not be created.");
+      }
+
+      await updateFn({ data: { avatar_url: createProfileAvatarReference(user.id) } });
+      return signed.signedUrl;
     },
     onSuccess: async (nextAvatarUrl) => {
       setAvatarUrl(nextAvatarUrl);
+      setAvatarUrlDirty(false);
       await qc.invalidateQueries({ queryKey: ["me"] });
       toast.success("Profile picture updated");
     },
@@ -243,7 +251,10 @@ function ProfileSettingsPage() {
                   id="avatar"
                   placeholder="https://images.unsplash.com/..."
                   value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
+                  onChange={(e) => {
+                    setAvatarUrl(e.target.value);
+                    setAvatarUrlDirty(true);
+                  }}
                   className="bg-surface text-xs"
                 />
                 <p className="text-[11px] text-muted-foreground">

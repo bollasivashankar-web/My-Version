@@ -7,6 +7,7 @@ import {
   UNTRUSTED_DOCUMENT_SYSTEM_RULES,
 } from "@/lib/ai-gateway.server";
 import { processDocumentInIsolatedWorker } from "@/lib/document-processing.server";
+import { runWithAiUsageGuard } from "@/lib/ai-usage.server";
 
 // ------------- shared schemas -------------
 
@@ -583,18 +584,20 @@ export const parseJobDescription = createServerFn({ method: "POST" })
       });
     }
 
-    return requestStructuredAiOutput(
-      {
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: `${UNTRUSTED_DOCUMENT_SYSTEM_RULES}\nExtract explicit IT staffing requirement facts only. Return only the requested JSON object.`,
-          },
-          { role: "user", content: userContent },
-        ],
-        response_format: { type: "json_object" },
-      },
-      ParsedJobDescriptionSchema,
+    return runWithAiUsageGuard(context.supabase, context.userId, "requirement_parse", () =>
+      requestStructuredAiOutput(
+        {
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            {
+              role: "system",
+              content: `${UNTRUSTED_DOCUMENT_SYSTEM_RULES}\nExtract explicit IT staffing requirement facts only. Return only the requested JSON object.`,
+            },
+            { role: "user", content: userContent },
+          ],
+          response_format: { type: "json_object" },
+        },
+        ParsedJobDescriptionSchema,
+      ),
     );
   });

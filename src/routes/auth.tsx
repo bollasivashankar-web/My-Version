@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/app-shell/theme-toggle";
 import { cn } from "@/lib/utils";
+import { isAllowedWorkEmail } from "@/lib/work-email-policy";
 
 /**
  * ---------------------------------------------------------------------------
@@ -75,6 +76,7 @@ const AUTH_ERROR_MESSAGES = {
   EMAIL_NOT_CONFIRMED: "Please verify your email address before signing in.",
   TOO_MANY_REQUESTS: "Too many authentication attempts. Please wait and try again.",
   GENERIC: "Unable to complete authentication. Please try again.",
+  WORK_EMAIL_REQUIRED: "Use your authorized work email to access Staffinix.",
 };
 
 /**
@@ -720,6 +722,11 @@ function SignUpForm({ redirect }: { redirect: string }) {
 
     if (!normalizedEmail) {
       toast.error("Please enter your work email.");
+      return;
+    }
+
+    if (!isAllowedWorkEmail(normalizedEmail)) {
+      toast.error(AUTH_ERROR_MESSAGES.WORK_EMAIL_REQUIRED);
       return;
     }
 

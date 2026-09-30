@@ -49,6 +49,9 @@ UPDATE public.profiles
 SET tenant_id = '31000000-0000-0000-0000-000000000001', is_active = true
 WHERE id = '3a000000-0000-0000-0000-000000000001';
 
+INSERT INTO public.user_roles (user_id, role) VALUES
+  ('3a000000-0000-0000-0000-000000000001', 'recruiter');
+
 CREATE TEMP TABLE created_candidate_ids (id uuid PRIMARY KEY);
 GRANT SELECT, INSERT ON created_candidate_ids TO authenticated;
 
@@ -139,6 +142,7 @@ SELECT throws_ok(
     )
   $$,
   '23505',
+  'duplicate key value violates unique constraint "candidate_skills_unique"',
   'a child constraint failure aborts the candidate graph'
 );
 

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireInterviewsAccess } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { isSafeHttpUrl } from "@/lib/safe-url";
 
 const ROUNDS = ["screen", "l1", "l2", "manager", "client", "technical", "final", "other"] as const;
 const OUTCOMES = [
@@ -19,7 +20,15 @@ const InterviewInputSchema = z.object({
   scheduled_at: z.string().nullable().optional(),
   duration_minutes: z.number().int().min(5).max(600).default(45),
   timezone: z.string().max(60).default("America/New_York"),
-  meeting_link: z.string().max(600).nullable().optional(),
+  meeting_link: z
+    .string()
+    .trim()
+    .max(600)
+    .url()
+    .refine(isSafeHttpUrl, "Meeting link must use HTTP or HTTPS")
+    .nullable()
+    .optional()
+    .or(z.literal("").transform(() => null)),
   location: z.string().max(200).nullable().optional(),
   interviewer_name: z.string().max(160).nullable().optional(),
   interviewer_email: z.string().max(255).nullable().optional(),

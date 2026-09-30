@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getSafeHttpUrl } from "@/lib/safe-url";
 import { getCandidate, getResumeSignedUrl } from "@/lib/candidates.functions";
 import { getBenchConsultantActivity } from "@/lib/bench.functions";
 import {
@@ -358,9 +359,13 @@ function BenchConsultantPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      {i.meeting_link && (
+                      {getSafeHttpUrl(i.meeting_link) && (
                         <Button size="sm" variant="outline" asChild>
-                          <a href={i.meeting_link} target="_blank" rel="noreferrer">
+                          <a
+                            href={getSafeHttpUrl(i.meeting_link) ?? undefined}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
                             Join <ExternalLink className="ml-1.5 h-3 w-3" />
                           </a>
                         </Button>
@@ -451,7 +456,9 @@ function ResumeRow({
         toast.info("Inline content — no downloadable file.");
         return;
       }
-      window.open(url, "_blank");
+      const safeUrl = getSafeHttpUrl(url);
+      if (!safeUrl) throw new Error("The generated download link is invalid.");
+      window.open(safeUrl, "_blank", "noopener,noreferrer");
     } catch (e) {
       toast.error((e as Error).message);
     } finally {

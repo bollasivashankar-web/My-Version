@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getServerServiceUrl } from "./server-service-url.ts";
 
 export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_DOCUMENT_TEXT_CHARS = 60_000;
@@ -58,11 +59,16 @@ export async function processDocumentInIsolatedWorker(input: {
     throw new Error("Document is outside the permitted file-size range");
   }
 
-  const workerUrl = process.env.DOCUMENT_PROCESSOR_URL?.trim();
+  const configuredWorkerUrl = process.env.DOCUMENT_PROCESSOR_URL?.trim();
   const workerToken = process.env.DOCUMENT_PROCESSOR_TOKEN?.trim();
-  if (!workerUrl || !workerToken) {
+  if (!configuredWorkerUrl || !workerToken) {
     throw new Error("Isolated document processing is not configured");
   }
+  const workerUrl = getServerServiceUrl({
+    name: "DOCUMENT_PROCESSOR_URL",
+    configuredValue: configuredWorkerUrl,
+    developmentDefault: "http://127.0.0.1:8788",
+  });
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DOCUMENT_PROCESSING_TIMEOUT_MS);

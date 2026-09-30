@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireVendorsAccess } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { isSafeHttpUrl } from "@/lib/safe-url";
 
 const STATUSES = ["prospect", "active", "inactive"] as const;
 const TIERS = ["a", "b", "c"] as const;
@@ -28,7 +29,15 @@ const VendorInputSchema = z.object({
   contact_phone: z.string().trim().max(40).nullable().optional(),
   linkedin_id: z.string().trim().max(255).nullable().optional(),
   contact_role: z.string().trim().max(120).nullable().optional(),
-  website: z.string().trim().max(255).nullable().optional(),
+  website: z
+    .string()
+    .trim()
+    .max(255)
+    .url()
+    .refine(isSafeHttpUrl, "Website must use HTTP or HTTPS")
+    .nullable()
+    .optional()
+    .or(z.literal("").transform(() => null)),
   address: z.string().trim().max(240).nullable().optional(),
   city: z.string().trim().max(120).nullable().optional(),
   state: z.string().trim().max(120).nullable().optional(),

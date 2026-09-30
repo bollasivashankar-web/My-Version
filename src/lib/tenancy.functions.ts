@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { isSafeHttpUrl } from "@/lib/safe-url";
 
 /** Level 1 + Level 2 tenancy context for the signed-in user. */
 export const getTenancy = createServerFn({ method: "GET" })
@@ -92,36 +93,45 @@ export const listTenants = createServerFn({ method: "GET" })
     return PlatformConsoleOverviewSchema.parse(data);
   });
 
-const TenantSchema = z.object({
-  name: z.string().trim().min(2).max(120),
-  slug: z
-    .string()
-    .trim()
-    .max(80)
-    .transform((s) =>
-      s
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "")
-        .slice(0, 60),
-    )
-    .refine((s) => s.length >= 2, "Slug must have at least 2 valid characters"),
+const TenantSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120),
+    slug: z
+      .string()
+      .trim()
+      .max(80)
+      .transform((s) =>
+        s
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 60),
+      )
+      .refine((s) => s.length >= 2, "Slug must have at least 2 valid characters"),
 
-  plan: z.enum(["trial", "starter", "growth", "enterprise"]),
-  status: z.enum(["active", "trialing", "suspended", "cancelled"]),
-  seat_limit: z.number().int().min(1).max(10000),
-  industry: z.string().trim().max(80).nullable().optional(),
-  website: z.string().trim().url().max(200).nullable().optional(),
-  primary_contact_email: z.string().trim().email().max(200).nullable().optional(),
-  tax_id: z.string().trim().max(80).nullable().optional(),
-  company_address: z.string().trim().max(500).nullable().optional(),
-  owner_contact_name: z.string().trim().max(120).nullable().optional(),
-  owner_contact_email: z.string().trim().email().max(255).nullable().optional(),
-  owner_contact_phone: z.string().trim().max(40).nullable().optional(),
-  admin_contact_name: z.string().trim().max(120).nullable().optional(),
-  admin_contact_email: z.string().trim().email().max(255).nullable().optional(),
-  admin_contact_phone: z.string().trim().max(40).nullable().optional(),
-});
+    plan: z.enum(["trial", "starter", "growth", "enterprise"]),
+    status: z.enum(["active", "trialing", "suspended", "cancelled"]),
+    seat_limit: z.number().int().min(1).max(10000),
+    industry: z.string().trim().max(80).nullable().optional(),
+    website: z
+      .string()
+      .trim()
+      .url()
+      .max(200)
+      .refine(isSafeHttpUrl, "Website must use HTTP or HTTPS")
+      .nullable()
+      .optional(),
+    primary_contact_email: z.string().trim().email().max(200).nullable().optional(),
+    tax_id: z.string().trim().max(80).nullable().optional(),
+    company_address: z.string().trim().max(500).nullable().optional(),
+    owner_contact_name: z.string().trim().max(120).nullable().optional(),
+    owner_contact_email: z.string().trim().email().max(255).nullable().optional(),
+    owner_contact_phone: z.string().trim().max(40).nullable().optional(),
+    admin_contact_name: z.string().trim().max(120).nullable().optional(),
+    admin_contact_email: z.string().trim().email().max(255).nullable().optional(),
+    admin_contact_phone: z.string().trim().max(40).nullable().optional(),
+  })
+  .strict();
 
 const TENANT_REGISTRATION_FIELDS =
   "id, name, slug, plan, status, seat_limit, industry, website, primary_contact_email, tax_id, company_address, owner_contact_name, owner_contact_email, owner_contact_phone, admin_contact_name, admin_contact_email, admin_contact_phone, created_at";
@@ -159,7 +169,7 @@ export const createTenant = createServerFn({ method: "POST" })
 export const updateTenant = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((i: unknown) =>
-    z.object({ id: z.string().uuid(), patch: TenantSchema.partial() }).parse(i),
+    z.object({ id: z.string().uuid(), patch: TenantSchema.partial() }).strict().parse(i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
@@ -248,9 +258,17 @@ export const updateMyCompany = createServerFn({ method: "POST" })
       .object({
         name: z.string().trim().min(2).max(120).optional(),
         industry: z.string().trim().max(80).nullable().optional(),
-        website: z.string().trim().max(200).nullable().optional(),
+        website: z
+          .string()
+          .trim()
+          .url()
+          .max(200)
+          .refine(isSafeHttpUrl, "Website must use HTTP or HTTPS")
+          .nullable()
+          .optional(),
         primary_contact_email: z.string().trim().email().max(200).nullable().optional(),
       })
+      .strict()
       .parse(i),
   )
   .handler(async ({ data, context }) => {

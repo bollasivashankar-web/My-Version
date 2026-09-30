@@ -43,6 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { listTenants, updateTenant } from "@/lib/tenancy.functions";
+import { getSafeHttpUrl } from "@/lib/safe-url";
 
 const PLANS = ["trial", "starter", "growth", "enterprise"] as const;
 const STATUSES = ["active", "trialing", "suspended", "cancelled"] as const;
@@ -201,11 +202,11 @@ function PlatformConsole() {
                     <TableRow key={tenant.id}>
                       <TableCell>
                         <p className="font-semibold">{tenant.name}</p>
-                        {tenant.website ? (
+                        {getSafeHttpUrl(tenant.website) ? (
                           <a
-                            href={tenant.website}
+                            href={getSafeHttpUrl(tenant.website) ?? undefined}
                             target="_blank"
-                            rel="noreferrer"
+                            rel="noopener noreferrer"
                             className="text-xs font-medium text-primary hover:underline"
                           >
                             {domainLabel(tenant.website, tenant.slug)}

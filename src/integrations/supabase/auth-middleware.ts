@@ -8,6 +8,7 @@ import { ForbiddenError } from "@/lib/authorization-policy";
 import { canAccessFeature, type Feature } from "@/lib/feature-access";
 import { assertPublishableSupabaseKey, isOpaquePublishableKey } from "./api-key-safety";
 import { setAuthenticatedRequestContext } from "@/lib/request-observability";
+import { isAllowedWorkEmail, parseEmailPolicyList } from "@/lib/work-email-policy";
 
 export { UnauthorizedError } from "./auth-header";
 
@@ -242,6 +243,15 @@ async function authenticateRequest(request: Request): Promise<SupabaseAuthContex
    */
   if (typeof claims.sub !== "string" || claims.sub !== userId) {
     throw new UnauthorizedError("Invalid authentication identity.");
+  }
+
+  if (
+    !isAllowedWorkEmail(user.email, {
+      allowedEmails: parseEmailPolicyList(process.env.AUTH_EMAIL_ALLOWLIST),
+      allowedDomains: parseEmailPolicyList(process.env.AUTH_ALLOWED_WORK_EMAIL_DOMAINS),
+    })
+  ) {
+    throw new ForbiddenError("Use an authorized work email account to access Staffinix.");
   }
 
   const { data: profile, error: profileError } = await supabase

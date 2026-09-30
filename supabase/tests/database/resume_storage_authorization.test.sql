@@ -32,6 +32,9 @@ UPDATE public.profiles
 SET tenant_id = '41000000-0000-4000-8000-000000000001', is_active = true
 WHERE id = '4a000000-0000-4000-8000-000000000001';
 
+INSERT INTO public.user_roles (user_id, role) VALUES
+  ('4a000000-0000-4000-8000-000000000001', 'recruiter');
+
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claim.role" = 'authenticated';
 SET LOCAL "request.jwt.claim.sub" = '4a000000-0000-4000-8000-000000000001';
@@ -41,9 +44,9 @@ SELECT * FROM public.issue_resume_upload('verified.pdf', 'application/pdf', 1024
 GRANT SELECT ON issued_upload TO authenticated;
 
 SELECT is((SELECT count(*) FROM issued_upload), 1::bigint, 'one upload grant is issued');
-SELECT like(
+SELECT matches(
   (SELECT staging_path FROM issued_upload),
-  '41000000-0000-4000-8000-000000000001/4a000000-0000-4000-8000-000000000001/%.pdf',
+  '^41000000-0000-4000-8000-000000000001/4a000000-0000-4000-8000-000000000001/[0-9a-f-]{36}\.pdf$',
   'staging path is derived from the tenant and authenticated user'
 );
 
@@ -54,6 +57,7 @@ SELECT throws_ok(
     )
   $$,
   '22023',
+  'Invalid resume file name',
   'file names cannot inject an object path'
 );
 SELECT throws_ok(
@@ -63,6 +67,7 @@ SELECT throws_ok(
     )
   $$,
   '22023',
+  'Unsupported resume type or size',
   'file name extension must match the declared type'
 );
 
@@ -75,6 +80,7 @@ SELECT throws_ok(
     )
   $$,
   '42501',
+  'Resume storage path was not issued by the server',
   'legacy candidate RPC cannot persist a caller-selected storage path'
 );
 
@@ -109,6 +115,7 @@ SELECT throws_ok(
     (SELECT upload_id FROM issued_upload)
   ),
   '42501',
+  'Resume upload not found, expired, or already consumed',
   'consumed upload is no longer authorized'
 );
 SELECT throws_ok(
@@ -118,6 +125,7 @@ SELECT throws_ok(
     (SELECT upload_id FROM issued_upload)
   ),
   '42501',
+  'Resume upload not found, expired, or already consumed',
   'an upload identifier cannot be replayed'
 );
 

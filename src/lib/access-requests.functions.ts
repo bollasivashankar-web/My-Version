@@ -3,10 +3,12 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const PLATFORM_ROLES = ["platform_owner", "platform_admin", "platform_support"] as const;
-const RequestSchema = z.object({
-  requestedRole: z.enum(PLATFORM_ROLES).default("platform_support"),
-  reason: z.string().trim().max(1000).optional(),
-});
+const RequestSchema = z
+  .object({
+    requestedRole: z.enum(PLATFORM_ROLES).default("platform_support"),
+    reason: z.string().trim().max(1000).optional(),
+  })
+  .strict();
 
 export const getMyAccessRequest = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -73,6 +75,7 @@ export const reviewAccessRequest = createServerFn({ method: "POST" })
         approve: z.boolean(),
         note: z.string().trim().max(1000).optional(),
       })
+      .strict()
       .parse(input),
   )
   .handler(async ({ data, context }) => {

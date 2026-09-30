@@ -8,6 +8,7 @@ import { requireTailoringAccess } from "@/integrations/supabase/auth-middleware"
 import type { Database, Json } from "@/integrations/supabase/types";
 import { requestStructuredAiOutput } from "@/lib/ai-gateway.server";
 import { writeAudit } from "@/lib/audit.server";
+import { runWithAiUsageGuard } from "@/lib/ai-usage.server";
 
 type AppSupabase = SupabaseClient<Database>;
 
@@ -540,7 +541,9 @@ export const generateFactPreservingResume = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
     const source = await loadTailoringSource(supabase, data.candidate_id, data.requirement_id);
-    const selection = await selectRelevantFactIds(source);
+    const selection = await runWithAiUsageGuard(supabase, userId, "resume_tailor", () =>
+      selectRelevantFactIds(source),
+    );
     const claimValidation = validateSelection(source, selection);
     const tailoredContent = renderFactPreservingResume(source, selection);
     if (!tailoredContent) throw new Error("No verified candidate facts were available to render");

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireRecruitersAccess } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { resolveProfileAvatarUrl, resolveProfileAvatarUrls } from "@/lib/profile-avatar.server";
 
 export const listRecruiters = createServerFn({ method: "GET" })
   .middleware([requireRecruitersAccess])
@@ -25,7 +26,8 @@ export const listRecruiters = createServerFn({ method: "GET" })
       .limit(100);
     if (profilesError) throw new Error(`Failed to load recruiters: ${profilesError.message}`);
 
-    return (profiles ?? []).map((profile) => ({
+    const safeProfiles = await resolveProfileAvatarUrls(context.supabase, profiles ?? []);
+    return safeProfiles.map((profile) => ({
       ...profile,
       roles: rolesByUser.get(profile.id) ?? [],
       open_requirements: 0,
@@ -82,7 +84,11 @@ export const getRecruiter = createServerFn({ method: "POST" })
     if (rolesError) throw new Error(`Failed to load recruiter roles: ${rolesError.message}`);
 
     return {
-      profile: { ...profile, roles: (roles ?? []).map((role) => role.role) },
+      profile: {
+        ...profile,
+        avatar_url: await resolveProfileAvatarUrl(context.supabase, profile.avatar_url),
+        roles: (roles ?? []).map((role) => role.role),
+      },
       requirements: [] as RecruiterRequirementItem[],
       submissions: [] as RecruiterSubmissionItem[],
       interviews: [] as RecruiterInterviewItem[],

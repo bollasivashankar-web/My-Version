@@ -52,6 +52,7 @@ import {
 } from "@/lib/submissions.functions";
 import { scheduleInterview, updateInterview, deleteInterview } from "@/lib/interviews.functions";
 import { updatePlacement } from "@/lib/placements.functions";
+import { getSafeHttpUrl } from "@/lib/safe-url";
 import {
   SUBMISSION_STAGES,
   STAGE_LABEL,
@@ -731,11 +732,11 @@ function InterviewRow({
               {interview.interviewer_name ?? "—"}
               {interview.interviewer_email ? ` · ${interview.interviewer_email}` : ""}
             </p>
-            {interview.meeting_link && (
+            {getSafeHttpUrl(interview.meeting_link) && (
               <a
-                href={interview.meeting_link}
+                href={getSafeHttpUrl(interview.meeting_link) ?? undefined}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="text-xs text-primary hover:underline"
               >
                 Join link

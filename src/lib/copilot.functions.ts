@@ -9,6 +9,7 @@ import {
   UNTRUSTED_DOCUMENT_SYSTEM_RULES,
 } from "@/lib/ai-gateway.server";
 import { writeAudit } from "@/lib/audit.server";
+import { runWithAiUsageGuard } from "@/lib/ai-usage.server";
 import {
   answerWithRag,
   getRagHealth,
@@ -434,6 +435,7 @@ export const askCopilot = createServerFn({ method: "POST" })
     if (profileResult.error || !profileResult.data) {
       throw new Error("Unable to resolve the Copilot tenant boundary.");
     }
+    const copilotTenantScope = profileResult.data.tenant_id ?? `platform:${context.userId}`;
 
     const conversationHistory = (historyResult.data ?? []).sort((left, right) => {
       const timestampDifference =
@@ -444,70 +446,83 @@ export const askCopilot = createServerFn({ method: "POST" })
     });
 
     const catalog = sourceCatalog(snapshot);
-    let response: {
-      answer: string;
-      sources: CopilotSource[];
-      mode: "ai" | "local" | "rag" | "rag-extractive";
-    };
-    let indexedChunks = 0;
-    let ragAvailable = true;
+    const { response, indexedChunks, ragAvailable } = await runWithAiUsageGuard(
+      context.supabase,
+      context.userId,
+      "copilot",
+      async () => {
+        let guardedResponse: {
+          answer: string;
+          sources: CopilotSource[];
+          mode: "ai" | "local" | "rag" | "rag-extractive";
+        };
+        let guardedIndexedChunks = 0;
+        let guardedRagAvailable = true;
 
-    try {
-      const rag = await answerWithRag({
-        tenantId: profileResult.data.tenant_id ?? `platform:${context.userId}`,
-        question: data.question,
-        documents: buildRagDocuments(snapshot),
-        history: conversationHistory,
-      });
-      indexedChunks = rag.indexedChunks;
-      response = {
-        answer: rag.answer,
-        sources: sourcesFromRagChunks(rag.chunks),
-        mode: rag.mode,
-      };
-    } catch {
-      ragAvailable = false;
-      if (!process.env.LOVABLE_API_KEY?.trim()) {
-        response = localGroundedAnswer(data.question, snapshot);
-      } else {
-        const ai = await requestStructuredAiOutput(
-          {
-            model: COPILOT_MODEL,
-            temperature: 0.2,
-            max_completion_tokens: 1_000,
-            response_format: { type: "json_object" },
-            messages: [
+        try {
+          const rag = await answerWithRag({
+            tenantId: copilotTenantScope,
+            question: data.question,
+            documents: buildRagDocuments(snapshot),
+            history: conversationHistory,
+          });
+          guardedIndexedChunks = rag.indexedChunks;
+          guardedResponse = {
+            answer: rag.answer,
+            sources: sourcesFromRagChunks(rag.chunks),
+            mode: rag.mode,
+          };
+        } catch {
+          guardedRagAvailable = false;
+          if (!process.env.LOVABLE_API_KEY?.trim()) {
+            guardedResponse = localGroundedAnswer(data.question, snapshot);
+          } else {
+            const ai = await requestStructuredAiOutput(
               {
-                role: "system",
-                content: `${UNTRUSTED_DOCUMENT_SYSTEM_RULES}
+                model: COPILOT_MODEL,
+                temperature: 0.2,
+                max_completion_tokens: 1_000,
+                response_format: { type: "json_object" },
+                messages: [
+                  {
+                    role: "system",
+                    content: `${UNTRUSTED_DOCUMENT_SYSTEM_RULES}
 You are the read-only Staffinix recruiting operations assistant.
 Answer only from the supplied tenant-scoped context and conversation history. If evidence is insufficient, say so.
 Never claim to perform writes, send messages, change stages, approve access, or contact people.
 Never make or recommend automatic hiring/rejection decisions. Present factual comparisons for human review.
 The context records have source keys such as candidate:<uuid>. Cite only keys present in the context.
 Return JSON with exactly: {"answer": string, "source_ids": string[]}.`,
+                  },
+                  {
+                    role: "user",
+                    content: `<conversation_history>${JSON.stringify(
+                      conversationHistory,
+                    )}</conversation_history>\n<user_request>${data.question}</user_request>\n<untrusted_context>${JSON.stringify(
+                      snapshot,
+                    )}</untrusted_context>`,
+                  },
+                ],
               },
-              {
-                role: "user",
-                content: `<conversation_history>${JSON.stringify(
-                  conversationHistory,
-                )}</conversation_history>\n<user_request>${data.question}</user_request>\n<untrusted_context>${JSON.stringify(
-                  snapshot,
-                )}</untrusted_context>`,
-              },
-            ],
-          },
-          AiCopilotResponseSchema,
-        );
-        response = {
-          answer: ai.answer,
-          sources: (ai.source_ids ?? [])
-            .map((id) => catalog.get(id))
-            .filter((source): source is CopilotSource => Boolean(source)),
-          mode: "ai",
+              AiCopilotResponseSchema,
+            );
+            guardedResponse = {
+              answer: ai.answer,
+              sources: (ai.source_ids ?? [])
+                .map((id) => catalog.get(id))
+                .filter((source): source is CopilotSource => Boolean(source)),
+              mode: "ai",
+            };
+          }
+        }
+
+        return {
+          response: guardedResponse,
+          indexedChunks: guardedIndexedChunks,
+          ragAvailable: guardedRagAvailable,
         };
-      }
-    }
+      },
+    );
 
     const userCreatedAt = new Date();
     const assistantCreatedAt = new Date(userCreatedAt.getTime() + 1);

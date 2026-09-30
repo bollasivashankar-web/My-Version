@@ -4,6 +4,7 @@ import { requireUsersAccess } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseAuthContext } from "@/integrations/supabase/auth-middleware";
 
 import { APP_ROLES } from "@/lib/authorization-policy";
+import { resolveProfileAvatarUrls } from "@/lib/profile-avatar.server";
 
 const AppRoleSchema = z.enum(APP_ROLES);
 
@@ -59,18 +60,21 @@ export const listUsers = createServerFn({ method: "GET" })
     for (const row of roles ?? [])
       rolesByUser.set(row.user_id, [...(rolesByUser.get(row.user_id) ?? []), row.role]);
 
-    return (profiles ?? []).map((profile) => ({
+    const safeProfiles = await resolveProfileAvatarUrls(context.supabase, profiles ?? []);
+    return safeProfiles.map((profile) => ({
       ...profile,
       last_sign_in_at: null,
       roles: rolesByUser.get(profile.id) ?? [],
     }));
   });
 
-const InviteSchema = z.object({
-  email: z.string().trim().email().max(255),
-  full_name: z.string().trim().min(1).max(120),
-  role: AppRoleSchema,
-});
+const InviteSchema = z
+  .object({
+    email: z.string().trim().email().max(255),
+    full_name: z.string().trim().min(1).max(120),
+    role: AppRoleSchema,
+  })
+  .strict();
 
 export const inviteUser = createServerFn({ method: "POST" })
   .middleware([requireUsersAccess])
@@ -104,7 +108,7 @@ export const inviteUser = createServerFn({ method: "POST" })
     return { id: userId, email: data.email };
   });
 
-const UpdateRoleSchema = z.object({ user_id: z.string().uuid(), role: AppRoleSchema });
+const UpdateRoleSchema = z.object({ user_id: z.string().uuid(), role: AppRoleSchema }).strict();
 
 export const updateUserRole = createServerFn({ method: "POST" })
   .middleware([requireUsersAccess])
@@ -129,7 +133,7 @@ export const updateUserRole = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-const SetActiveSchema = z.object({ user_id: z.string().uuid(), is_active: z.boolean() });
+const SetActiveSchema = z.object({ user_id: z.string().uuid(), is_active: z.boolean() }).strict();
 
 export const setUserActive = createServerFn({ method: "POST" })
   .middleware([requireUsersAccess])

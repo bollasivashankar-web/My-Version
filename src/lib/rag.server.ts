@@ -1,13 +1,28 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { getServerServiceUrl } from "./server-service-url.ts";
 
-const QDRANT_URL = (process.env.QDRANT_URL?.trim() || "http://127.0.0.1:6333").replace(/\/$/, "");
 const QDRANT_COLLECTION = process.env.QDRANT_COLLECTION?.trim() || "staffinix_knowledge";
 const QDRANT_API_KEY = process.env.QDRANT_API_KEY?.trim();
-const OLLAMA_URL = (process.env.OLLAMA_URL?.trim() || "http://127.0.0.1:11434").replace(/\/$/, "");
 const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL?.trim() || "embeddinggemma";
 const OLLAMA_CHAT_MODEL = process.env.OLLAMA_CHAT_MODEL?.trim() || "gemma3:4b";
 const REQUEST_TIMEOUT_MS = 30_000;
+
+function qdrantUrl(): string {
+  return getServerServiceUrl({
+    name: "QDRANT_URL",
+    configuredValue: process.env.QDRANT_URL,
+    developmentDefault: "http://127.0.0.1:6333",
+  });
+}
+
+function ollamaUrl(): string {
+  return getServerServiceUrl({
+    name: "OLLAMA_URL",
+    configuredValue: process.env.OLLAMA_URL,
+    developmentDefault: "http://127.0.0.1:11434",
+  });
+}
 
 export type RagSourceType =
   "requirement" | "candidate" | "submission" | "interview" | "placement" | "client" | "vendor";
@@ -58,6 +73,7 @@ const QdrantScrollSchema = z.object({
         payload: z.record(z.unknown()).nullable().optional(),
       }),
     ),
+    next_page_offset: z.union([z.string(), z.number()]).nullable().optional(),
   }),
 });
 
@@ -126,7 +142,7 @@ async function qdrantRequest(path: string, init?: RequestInit): Promise<Response
   const headers = new Headers(init?.headers);
   headers.set("content-type", "application/json");
   if (QDRANT_API_KEY) headers.set("api-key", QDRANT_API_KEY);
-  return fetchWithTimeout(`${QDRANT_URL}${path}`, { ...init, headers });
+  return fetchWithTimeout(`${qdrantUrl()}${path}`, { ...init, headers });
 }
 
 async function readJson(response: Response, operation: string): Promise<unknown> {
@@ -139,7 +155,7 @@ async function readJson(response: Response, operation: string): Promise<unknown>
 
 async function embedTexts(texts: string[]): Promise<number[][]> {
   if (!texts.length) return [];
-  const response = await fetchWithTimeout(`${OLLAMA_URL}/api/embed`, {
+  const response = await fetchWithTimeout(`${ollamaUrl()}/api/embed`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ model: OLLAMA_EMBED_MODEL, input: texts, truncate: true }),
@@ -183,27 +199,47 @@ function tenantFilter(tenantId: string) {
 }
 
 async function indexedDocumentHashes(tenantId: string): Promise<Map<string, string>> {
-  const response = await qdrantRequest(
-    `/collections/${encodeURIComponent(QDRANT_COLLECTION)}/points/scroll`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        filter: tenantFilter(tenantId),
-        limit: 2_000,
-        with_payload: ["document_id", "document_hash"],
-        with_vector: false,
-      }),
-    },
-  );
-  const parsed = QdrantScrollSchema.parse(await readJson(response, "Qdrant document scan"));
   const hashes = new Map<string, string>();
-  for (const point of parsed.result.points) {
-    const documentId = point.payload?.document_id;
-    const documentHash = point.payload?.document_hash;
-    if (typeof documentId === "string" && typeof documentHash === "string") {
-      hashes.set(documentId, documentHash);
+  const seenOffsets = new Set<string>();
+  let offset: string | number | null | undefined;
+  let scannedPoints = 0;
+
+  do {
+    const response = await qdrantRequest(
+      `/collections/${encodeURIComponent(QDRANT_COLLECTION)}/points/scroll`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          filter: tenantFilter(tenantId),
+          limit: 256,
+          ...(offset !== undefined && offset !== null ? { offset } : {}),
+          with_payload: ["document_id", "document_hash"],
+          with_vector: false,
+        }),
+      },
+    );
+    const parsed = QdrantScrollSchema.parse(await readJson(response, "Qdrant document scan"));
+    scannedPoints += parsed.result.points.length;
+    if (scannedPoints > 100_000) {
+      throw new Error("Qdrant document scan exceeded the tenant safety limit");
     }
-  }
+
+    for (const point of parsed.result.points) {
+      const documentId = point.payload?.document_id;
+      const documentHash = point.payload?.document_hash;
+      if (typeof documentId === "string" && typeof documentHash === "string") {
+        hashes.set(documentId, documentHash);
+      }
+    }
+
+    offset = parsed.result.next_page_offset;
+    if (offset !== undefined && offset !== null) {
+      const offsetKey = String(offset);
+      if (seenOffsets.has(offsetKey)) throw new Error("Qdrant returned a repeated scroll offset");
+      seenOffsets.add(offsetKey);
+    }
+  } while (offset !== undefined && offset !== null);
+
   return hashes;
 }
 
@@ -338,7 +374,7 @@ async function generateGroundedAnswer(
     )
     .join("\n\n");
   const response = await fetchWithTimeout(
-    `${OLLAMA_URL}/api/chat`,
+    `${ollamaUrl()}/api/chat`,
     {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -422,8 +458,8 @@ export async function getRagHealth(): Promise<{
   chatModel: string;
 }> {
   const [qdrant, ollama] = await Promise.allSettled([
-    fetchWithTimeout(`${QDRANT_URL}/healthz`, undefined, 2_000),
-    fetchWithTimeout(`${OLLAMA_URL}/api/tags`, undefined, 2_000),
+    fetchWithTimeout(`${qdrantUrl()}/healthz`, undefined, 2_000),
+    fetchWithTimeout(`${ollamaUrl()}/api/tags`, undefined, 2_000),
   ]);
   return {
     qdrant: qdrant.status === "fulfilled" && qdrant.value.ok,

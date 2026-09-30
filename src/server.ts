@@ -12,6 +12,7 @@ import {
   assertDeclaredRequestBodyWithinLimit,
   PayloadTooLargeError,
 } from "./integrations/http/request-size";
+import { applySecurityHeaders } from "./integrations/http/security-headers";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -63,28 +64,33 @@ export default {
       }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return applySecurityHeaders(request, await normalizeCatastrophicSsrResponse(response));
     } catch (error) {
       if (error instanceof PayloadTooLargeError) {
-        return new Response(JSON.stringify({ error: "Request payload exceeds the 1 MiB limit." }), {
-          status: 413,
-          headers: {
-            "content-type": "application/json; charset=utf-8",
-            "cache-control": "no-store",
-            "x-content-type-options": "nosniff",
-          },
-        });
+        return applySecurityHeaders(
+          request,
+          new Response(JSON.stringify({ error: "Request payload exceeds the 1 MiB limit." }), {
+            status: 413,
+            headers: {
+              "content-type": "application/json; charset=utf-8",
+              "cache-control": "no-store",
+            },
+          }),
+        );
       }
       const observation = beginRequestObservation(request, new URL(request.url).pathname);
       setRequestErrorCode(request, "INTERNAL_ERROR");
       writeRequestLog(completeRequestObservation(observation, 500));
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "x-request-id": observation.requestId,
-        },
-      });
+      return applySecurityHeaders(
+        request,
+        new Response(renderErrorPage(), {
+          status: 500,
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+            "x-request-id": observation.requestId,
+          },
+        }),
+      );
     }
   },
 };

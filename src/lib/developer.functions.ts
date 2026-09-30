@@ -11,20 +11,22 @@ async function sha256(value: string) {
     .join("");
 }
 
-const WorkflowSchema = z.object({
-  auto_parse_resumes: z.boolean().optional(),
-  auto_match_on_requirement: z.boolean().optional(),
-  auto_draft_submission_email: z.boolean().optional(),
-  interview_reminders: z.boolean().optional(),
-  match_score_threshold: z.number().int().min(0).max(100).optional(),
-  webhook_url: z
-    .string()
-    .trim()
-    .url()
-    .nullable()
-    .optional()
-    .refine((value) => !value || value.startsWith("https://"), "Webhook URL must use HTTPS."),
-});
+const WorkflowSchema = z
+  .object({
+    auto_parse_resumes: z.boolean().optional(),
+    auto_match_on_requirement: z.boolean().optional(),
+    auto_draft_submission_email: z.boolean().optional(),
+    interview_reminders: z.boolean().optional(),
+    match_score_threshold: z.number().int().min(0).max(100).optional(),
+    webhook_url: z
+      .string()
+      .trim()
+      .url()
+      .nullable()
+      .optional()
+      .refine((value) => !value || value.startsWith("https://"), "Webhook URL must use HTTPS."),
+  })
+  .strict();
 
 async function requireAdmin(context: SupabaseAuthContext) {
   const { requireDeveloperAdmin: check } = await import("@/lib/rbac.server");
@@ -66,6 +68,7 @@ export const createApiKey = createServerFn({ method: "POST" })
           .max(3),
         expires_in_days: z.number().int().min(1).max(3650).nullable().optional(),
       })
+      .strict()
       .parse(i),
   )
   .handler(async ({ data, context }) => {
@@ -107,7 +110,7 @@ export const createApiKey = createServerFn({ method: "POST" })
 
 export const revokeApiKey = createServerFn({ method: "POST" })
   .middleware([requireDeveloperAccess])
-  .validator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
+  .validator((i: unknown) => z.object({ id: z.string().uuid() }).strict().parse(i))
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { data: row, error } = await context.supabase

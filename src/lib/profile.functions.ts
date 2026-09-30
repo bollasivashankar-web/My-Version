@@ -3,6 +3,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { serverFunctionAuth } from "@/integrations/supabase/server-function-auth";
 import { z } from "zod";
 import type { RoleLevel } from "@/types/auth";
+import { isAllowedProfileAvatarValue } from "@/lib/profile-avatar";
+import { resolveProfileAvatarUrl } from "@/lib/profile-avatar.server";
 
 function getRoleLevel(roles: string[], platformRole: string | null): RoleLevel {
   if (platformRole === "platform_owner" || platformRole === "platform_admin") return "L1";
@@ -71,11 +73,12 @@ export const getMyProfile = createServerFn({ method: "GET" })
             .replace(/\b\w/g, (c) => c.toUpperCase())
         : "User");
 
-    const userAvatarUrl =
+    const storedAvatarUrl =
       profile.avatar_url ||
       (context.user?.user_metadata?.avatar_url as string | undefined) ||
       (context.user?.user_metadata?.picture as string | undefined) ||
       null;
+    const userAvatarUrl = await resolveProfileAvatarUrl(supabase, storedAvatarUrl);
 
     const userPhone =
       profile.phone ||
@@ -107,11 +110,19 @@ export const getMyProfile = createServerFn({ method: "GET" })
     };
   });
 
-const UpdateProfileSchema = z.object({
-  full_name: z.string().trim().min(1).max(120).optional(),
-  phone: z.string().trim().max(40).nullable().optional(),
-  avatar_url: z.string().url().max(500).nullable().optional(),
-});
+const UpdateProfileSchema = z
+  .object({
+    full_name: z.string().trim().min(1).max(120).optional(),
+    phone: z.string().trim().max(40).nullable().optional(),
+    avatar_url: z
+      .string()
+      .trim()
+      .max(500)
+      .refine(isAllowedProfileAvatarValue, "Use an HTTPS image URL or an uploaded profile photo.")
+      .nullable()
+      .optional(),
+  })
+  .strict();
 
 export const updateMyProfile = createServerFn({ method: "POST" })
   .middleware([serverFunctionAuth, requireSupabaseAuth])

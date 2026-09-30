@@ -52,6 +52,7 @@ SELECT results_eq(
   $$ VALUES
     ('match_candidates_for_requirement'::name),
     ('match_requirements_for_candidate'::name),
+    ('reserve_ai_usage'::name),
     ('search_candidates_semantic'::name)
   $$,
   'authenticated can execute only the reviewed public SECURITY DEFINER RPCs'
@@ -144,6 +145,8 @@ SELECT is(
       AND n.nspname = 'private'
       AND has_function_privilege('authenticated', p.oid, 'EXECUTE')
       AND p.proname NOT IN (
+        'can_access_feature',
+        'can_read_profile_avatar',
         'can_access_resume_staging_path',
         'claim_resume_upload',
         'current_tenant_id',
@@ -154,7 +157,8 @@ SELECT is(
         'is_active_user',
         'is_admin',
         'is_platform_admin',
-        'is_platform_owner'
+        'is_platform_owner',
+        'set_user_role'
       )
   ),
   0::bigint,

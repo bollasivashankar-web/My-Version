@@ -6,6 +6,7 @@ import {
   UNTRUSTED_DOCUMENT_SYSTEM_RULES,
 } from "@/lib/ai-gateway.server";
 import { writeAudit } from "@/lib/audit.server";
+import { runWithAiUsageGuard } from "@/lib/ai-usage.server";
 
 const MATCH_RATIONALE_MODEL = "google/gemini-3-flash-preview";
 const MATCH_RATIONALE_PROMPT_VERSION = "match-rationale-human-review-v1";
@@ -609,28 +610,30 @@ This is decision support for a recruiter. Do not make an automatic hiring or rej
 Return ONLY JSON:
 { "strengths": string[], "gaps": string[], "recommendation": string, "verdict": "strong" | "possible" | "weak" }`;
 
-      const rationale = await requestStructuredAiOutput(
-        {
-          model: MATCH_RATIONALE_MODEL,
-          temperature: 0.2,
-          max_completion_tokens: 900,
-          messages: [
-            {
-              role: "system",
-              content: `${UNTRUSTED_DOCUMENT_SYSTEM_RULES}\nAct as a concise recruiting analyst. Return only JSON.`,
-            },
-            { role: "user", content: prompt },
-          ],
-          response_format: { type: "json_object" },
-        },
-        z
-          .object({
-            strengths: z.array(z.string().trim().min(1).max(500)).max(20),
-            gaps: z.array(z.string().trim().min(1).max(500)).max(20),
-            recommendation: z.string().trim().min(1).max(2000),
-            verdict: z.enum(["strong", "possible", "weak"]),
-          })
-          .strict(),
+      const rationale = await runWithAiUsageGuard(supabase, userId, "match_rationale", () =>
+        requestStructuredAiOutput(
+          {
+            model: MATCH_RATIONALE_MODEL,
+            temperature: 0.2,
+            max_completion_tokens: 900,
+            messages: [
+              {
+                role: "system",
+                content: `${UNTRUSTED_DOCUMENT_SYSTEM_RULES}\nAct as a concise recruiting analyst. Return only JSON.`,
+              },
+              { role: "user", content: prompt },
+            ],
+            response_format: { type: "json_object" },
+          },
+          z
+            .object({
+              strengths: z.array(z.string().trim().min(1).max(500)).max(20),
+              gaps: z.array(z.string().trim().min(1).max(500)).max(20),
+              recommendation: z.string().trim().min(1).max(2000),
+              verdict: z.enum(["strong", "possible", "weak"]),
+            })
+            .strict(),
+        ),
       );
 
       await writeAudit({
