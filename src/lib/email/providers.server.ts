@@ -17,6 +17,47 @@ export interface ProviderIdentity {
 
 type OAuthConfig = { clientId: string; clientSecret: string; redirectUri: string };
 
+export interface ProviderConfigurationStatus {
+  configured: boolean;
+  reason: "available" | "oauth_configuration_missing" | "redirect_uri_invalid";
+}
+
+type Environment = Record<string, string | undefined>;
+
+function providerPrefix(provider: EmailProvider): "GOOGLE" | "MICROSOFT" {
+  return provider === "gmail" ? "GOOGLE" : "MICROSOFT";
+}
+
+export function getProviderConfigurationStatus(
+  provider: EmailProvider,
+  environment: Environment = process.env,
+): ProviderConfigurationStatus {
+  const prefix = providerPrefix(provider);
+  const clientId = environment[`${prefix}_CLIENT_ID`]?.trim();
+  const clientSecret = environment[`${prefix}_CLIENT_SECRET`]?.trim();
+  const redirectUri = environment[`${prefix}_EMAIL_REDIRECT_URI`]?.trim();
+  if (!clientId || !clientSecret || !redirectUri) {
+    return { configured: false, reason: "oauth_configuration_missing" };
+  }
+
+  try {
+    const url = new URL(redirectUri);
+    const localHttp = url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname);
+    const expectedProvider = provider === "gmail" ? "gmail" : "microsoft";
+    if (
+      (url.protocol !== "https:" && !localHttp) ||
+      url.pathname !== "/settings/email-accounts/callback" ||
+      url.searchParams.get("provider") !== expectedProvider
+    ) {
+      return { configured: false, reason: "redirect_uri_invalid" };
+    }
+  } catch {
+    return { configured: false, reason: "redirect_uri_invalid" };
+  }
+
+  return { configured: true, reason: "available" };
+}
+
 function requiredEnv(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} is not configured`);
@@ -24,7 +65,9 @@ function requiredEnv(name: string): string {
 }
 
 export function getProviderOAuthConfig(provider: EmailProvider): OAuthConfig {
-  const prefix = provider === "gmail" ? "GOOGLE" : "MICROSOFT";
+  const status = getProviderConfigurationStatus(provider);
+  if (!status.configured) throw new Error(`${provider} OAuth is not configured`);
+  const prefix = providerPrefix(provider);
   return {
     clientId: requiredEnv(`${prefix}_CLIENT_ID`),
     clientSecret: requiredEnv(`${prefix}_CLIENT_SECRET`),

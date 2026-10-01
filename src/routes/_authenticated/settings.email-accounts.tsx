@@ -11,9 +11,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   beginEmailOAuth,
   disconnectEmailAccount,
+  getEmailProviderAvailability,
   listEmailAccounts,
   syncEmailAccount,
 } from "@/lib/email-intelligence.functions";
+import { getProviderUnavailableMessage } from "@/lib/email/connection-health";
 import type { EmailProvider } from "@/lib/email/types";
 
 export const Route = createFileRoute("/_authenticated/settings/email-accounts")({
@@ -24,12 +26,18 @@ export const Route = createFileRoute("/_authenticated/settings/email-accounts")(
 function EmailAccountsPage() {
   const listFn = useServerFn(listEmailAccounts);
   const beginFn = useServerFn(beginEmailOAuth);
+  const availabilityFn = useServerFn(getEmailProviderAvailability);
   const syncFn = useServerFn(syncEmailAccount);
   const disconnectFn = useServerFn(disconnectEmailAccount);
   const client = useQueryClient();
   const accounts = useQuery({
     queryKey: ["email-accounts"],
     queryFn: () => listFn(),
+    retry: false,
+  });
+  const availability = useQuery({
+    queryKey: ["email-provider-availability"],
+    queryFn: () => availabilityFn(),
     retry: false,
   });
   const connect = useMutation({
@@ -71,26 +79,49 @@ function EmailAccountsPage() {
           </div>
         )}
         {accounts.isError && (
-          <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
             <TriangleAlert className="size-4 shrink-0" />
-            Email accounts could not be loaded. Try again after the database is available.
+            <span className="min-w-0 flex-1">
+              {accounts.error instanceof Error
+                ? accounts.error.message
+                : "Connected email accounts are temporarily unavailable."}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={accounts.isFetching}
+              onClick={() => void accounts.refetch()}
+            >
+              <RefreshCw
+                className={accounts.isFetching ? "mr-1.5 size-3.5 animate-spin" : "mr-1.5 size-3.5"}
+              />
+              Retry
+            </Button>
           </div>
         )}
         <div className="grid gap-4 lg:grid-cols-2">
-          {(["gmail", "microsoft"] as const).map((provider) => (
-            <Card key={provider}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 capitalize">
-                  <span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary">
-                    <Mail className="size-4" />
-                  </span>
-                  {provider === "gmail" ? "Gmail" : "Microsoft Outlook"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {(accounts.data ?? [])
-                  .filter((account) => account.provider === provider)
-                  .map((account) => (
+          {(["gmail", "microsoft"] as const).map((provider) => {
+            const providerAvailability = availability.data?.[provider];
+            const providerMessage = providerAvailability
+              ? getProviderUnavailableMessage(provider, providerAvailability.reason)
+              : availability.isError
+                ? "Provider configuration could not be checked."
+                : null;
+            const providerAccounts = (accounts.data ?? []).filter(
+              (account) => account.provider === provider,
+            );
+            return (
+              <Card key={provider}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 capitalize">
+                    <span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary">
+                      <Mail className="size-4" />
+                    </span>
+                    {provider === "gmail" ? "Gmail" : "Microsoft Outlook"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {providerAccounts.map((account) => (
                     <div key={account.id} className="rounded-xl border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -129,17 +160,34 @@ function EmailAccountsPage() {
                       </div>
                     </div>
                   ))}
-                <Button
-                  className="w-full"
-                  variant="outline"
-                  disabled={accounts.isPending || accounts.isError || connect.isPending}
-                  onClick={() => connect.mutate(provider)}
-                >
-                  Connect {provider === "gmail" ? "Gmail" : "Outlook"}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                  {!accounts.isPending && !accounts.isError && providerAccounts.length === 0 && (
+                    <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                      No {provider === "gmail" ? "Gmail" : "Outlook"} account is connected.
+                    </p>
+                  )}
+                  {providerMessage && (
+                    <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-300">
+                      <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+                      {providerMessage}
+                    </div>
+                  )}
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    disabled={
+                      availability.isPending ||
+                      availability.isError ||
+                      providerAvailability?.configured !== true ||
+                      connect.isPending
+                    }
+                    onClick={() => connect.mutate(provider)}
+                  >
+                    Connect {provider === "gmail" ? "Gmail" : "Outlook"}
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
         <div className="flex gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
           <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />

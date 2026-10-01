@@ -7,16 +7,22 @@ import { runWithAiUsageGuard } from "@/lib/ai-usage.server";
 import { GatewayEmailClassifier } from "@/lib/email/classifier.server";
 import { evaluateEmail, evaluateEmailRule } from "@/lib/email/filter-engine";
 import {
+  getEmailAccountLoadFailure,
+  type EmailProviderAvailability,
+} from "@/lib/email/connection-health";
+import {
   createAuthorizationUrl,
   exchangeAuthorizationCode,
   fetchProviderIdentity,
   fetchProviderMessages,
+  getProviderConfigurationStatus,
   refreshProviderToken,
 } from "@/lib/email/providers.server";
 import {
   createSecureRandomValue,
   decryptEmailToken,
   encryptEmailToken,
+  isEmailTokenEncryptionConfigured,
   sha256Base64Url,
 } from "@/lib/email/token-crypto.server";
 import type {
@@ -31,6 +37,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const ProviderSchema = z.enum(["gmail", "microsoft"]);
 const IdSchema = z.string().uuid();
 const StringListSchema = z.array(z.string().trim().min(1).max(320)).max(50).default([]);
+
+function resolveEmailProviderAvailability(provider: EmailProvider): EmailProviderAvailability {
+  const providerStatus = getProviderConfigurationStatus(provider);
+  if (!providerStatus.configured) return providerStatus;
+  if (!isEmailTokenEncryptionConfigured()) {
+    return { configured: false, reason: "token_encryption_missing" };
+  }
+  return providerStatus;
+}
 
 const RuleInputSchema = z
   .object({
@@ -190,17 +205,32 @@ export const listEmailAccounts = createServerFn({ method: "GET" })
       .from("email_accounts")
       .select("id, provider, email_address, status, last_sync_at, last_sync_error_code, created_at")
       .order("created_at", { ascending: true });
-    if (error)
-      throw new ApplicationError("INTERNAL_ERROR", {
-        message: "Unable to load connected accounts.",
+    if (error) {
+      const failure = getEmailAccountLoadFailure(error);
+      throw new ApplicationError("DEPENDENCY_ERROR", {
+        message: failure.message,
       });
+    }
     return data ?? [];
   });
+
+export const getEmailProviderAvailability = createServerFn({ method: "GET" })
+  .middleware([requireEmailIntelligenceAccess])
+  .handler(() => ({
+    gmail: resolveEmailProviderAvailability("gmail"),
+    microsoft: resolveEmailProviderAvailability("microsoft"),
+  }));
 
 export const beginEmailOAuth = createServerFn({ method: "POST" })
   .middleware([serverFunctionAuth, requireEmailIntelligenceAccess])
   .validator((input: unknown) => z.object({ provider: ProviderSchema }).strict().parse(input))
   .handler(async ({ data, context }) => {
+    const availability = resolveEmailProviderAvailability(data.provider);
+    if (!availability.configured) {
+      throw new ApplicationError("DEPENDENCY_ERROR", {
+        message: "This email provider is not configured for secure OAuth connections.",
+      });
+    }
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     const [{ error: cleanupError }, { count: recentAttempts, error: attemptsError }] =
       await Promise.all([
@@ -271,7 +301,17 @@ export const completeEmailOAuth = createServerFn({ method: "POST" })
         message: "Email authorization state is invalid or expired.",
       });
     }
-    await context.supabase.from("email_oauth_states").delete().eq("id", oauthState.id);
+    const { data: consumedState, error: consumeError } = await context.supabase
+      .from("email_oauth_states")
+      .delete()
+      .eq("id", oauthState.id)
+      .select("id")
+      .maybeSingle();
+    if (consumeError || !consumedState) {
+      throw new ApplicationError("FORBIDDEN", {
+        message: "Email authorization state could not be consumed.",
+      });
+    }
     const verifier = await decryptEmailToken(oauthState.encrypted_pkce_verifier);
     const tokens = await exchangeAuthorizationCode(data.provider, data.code, verifier);
     const identity = await fetchProviderIdentity(data.provider, tokens.accessToken);
@@ -490,10 +530,15 @@ export const syncEmailAccount = createServerFn({ method: "POST" })
       let accessToken = await decryptEmailToken(account.encrypted_access_token);
       if (new Date(account.token_expires_at).getTime() <= Date.now() + 120_000) {
         if (!account.encrypted_refresh_token) throw new Error("EMAIL_REAUTHORIZATION_REQUIRED");
-        const refreshed = await refreshProviderToken(
-          provider,
-          await decryptEmailToken(account.encrypted_refresh_token),
-        );
+        let refreshed: Awaited<ReturnType<typeof refreshProviderToken>>;
+        try {
+          refreshed = await refreshProviderToken(
+            provider,
+            await decryptEmailToken(account.encrypted_refresh_token),
+          );
+        } catch {
+          throw new Error("EMAIL_REAUTHORIZATION_REQUIRED");
+        }
         accessToken = refreshed.accessToken;
         await context.supabase
           .from("email_accounts")

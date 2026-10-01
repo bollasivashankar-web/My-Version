@@ -1,6 +1,35 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeGmailMessage, normalizeMicrosoftMessage } from "./providers.server.ts";
+import {
+  getProviderConfigurationStatus,
+  normalizeGmailMessage,
+  normalizeMicrosoftMessage,
+} from "./providers.server.ts";
+
+test("reports provider OAuth readiness without exposing credential values", () => {
+  assert.deepEqual(getProviderConfigurationStatus("gmail", {}), {
+    configured: false,
+    reason: "oauth_configuration_missing",
+  });
+  assert.deepEqual(
+    getProviderConfigurationStatus("gmail", {
+      GOOGLE_CLIENT_ID: "client-id",
+      GOOGLE_CLIENT_SECRET: "client-secret",
+      GOOGLE_EMAIL_REDIRECT_URI:
+        "https://my-version-kappa.vercel.app/settings/email-accounts/callback?provider=gmail",
+    }),
+    { configured: true, reason: "available" },
+  );
+  assert.deepEqual(
+    getProviderConfigurationStatus("microsoft", {
+      MICROSOFT_CLIENT_ID: "client-id",
+      MICROSOFT_CLIENT_SECRET: "client-secret",
+      MICROSOFT_EMAIL_REDIRECT_URI:
+        "https://my-version-kappa.vercel.app/settings/email-accounts/callback?provider=gmail",
+    }),
+    { configured: false, reason: "redirect_uri_invalid" },
+  );
+});
 
 test("normalizes Gmail messages and attachment metadata", () => {
   const normalized = normalizeGmailMessage(

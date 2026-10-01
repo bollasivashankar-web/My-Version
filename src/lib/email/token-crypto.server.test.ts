@@ -4,8 +4,20 @@ import {
   createSecureRandomValue,
   decryptEmailToken,
   encryptEmailToken,
+  isEmailTokenEncryptionConfigured,
   sha256Base64Url,
 } from "./token-crypto.server.ts";
+
+test("validates token-encryption configuration without exposing the key", () => {
+  assert.equal(isEmailTokenEncryptionConfigured({}), false);
+  assert.equal(isEmailTokenEncryptionConfigured({ EMAIL_TOKEN_ENCRYPTION_KEY: "invalid" }), false);
+  assert.equal(
+    isEmailTokenEncryptionConfigured({
+      EMAIL_TOKEN_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    }),
+    true,
+  );
+});
 
 test("email credentials round-trip through authenticated encryption", async () => {
   process.env.EMAIL_TOKEN_ENCRYPTION_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";

@@ -15,6 +15,18 @@ function decode(value: string): Uint8Array {
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
+export function isEmailTokenEncryptionConfigured(
+  environment: Record<string, string | undefined> = process.env,
+): boolean {
+  const configured = environment.EMAIL_TOKEN_ENCRYPTION_KEY?.trim();
+  if (!configured) return false;
+  try {
+    return decode(configured).byteLength === 32;
+  } catch {
+    return false;
+  }
+}
+
 function getRawKey(): Uint8Array {
   const configured = process.env.EMAIL_TOKEN_ENCRYPTION_KEY?.trim();
   if (!configured) throw new Error("Email token encryption is not configured");

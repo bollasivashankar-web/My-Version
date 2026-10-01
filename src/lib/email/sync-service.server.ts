@@ -133,10 +133,15 @@ export async function synchronizeEmailAccount(options: {
     if (new Date(account.token_expires_at).getTime() <= Date.now() + 120_000) {
       if (!account.encrypted_refresh_token)
         throw new EmailSyncError("EMAIL_REAUTHORIZATION_REQUIRED");
-      const refreshed = await refreshProviderToken(
-        provider,
-        await decryptEmailToken(account.encrypted_refresh_token),
-      );
+      let refreshed: Awaited<ReturnType<typeof refreshProviderToken>>;
+      try {
+        refreshed = await refreshProviderToken(
+          provider,
+          await decryptEmailToken(account.encrypted_refresh_token),
+        );
+      } catch {
+        throw new EmailSyncError("EMAIL_REAUTHORIZATION_REQUIRED");
+      }
       accessToken = refreshed.accessToken;
       const { error: refreshWriteError } = await supabase
         .from("email_accounts")

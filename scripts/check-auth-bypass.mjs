@@ -120,8 +120,8 @@ assert.doesNotMatch(
 const profileServer = readFileSync("src/lib/profile.functions.ts", "utf8");
 assert.match(
   profileServer,
-  /getMyProfile[\s\S]*middleware\(\[requireSupabaseAuth\]\)/,
-  "Profile endpoint must require a verified JWT",
+  /getMyProfile[\s\S]*?middleware\(\[\s*serverFunctionAuth\s*,\s*requireSupabaseAuth\s*\]\)/,
+  "Profile endpoint must require verified server-function and Supabase JWT authentication",
 );
 assert.doesNotMatch(
   profileServer,
