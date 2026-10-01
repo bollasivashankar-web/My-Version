@@ -48,3 +48,24 @@ export const VISA_OPTIONS = [
   "TN",
   "EAD",
 ] as const;
+
+export const CANDIDATE_FORM_VISA_OPTIONS = [
+  "H1B",
+  "Green Card",
+  "US Citizen",
+  "OPT-STEM",
+  "TN Visa",
+  "EAD",
+] as const;
+
+export const MARKETING_TYPES = ["C2C", "W2", "Full-Time", "1099"] as const;
+export type MarketingType = (typeof MARKETING_TYPES)[number];
+
+export function toggleMarketingType(
+  selected: readonly MarketingType[],
+  value: MarketingType,
+): MarketingType[] {
+  return selected.includes(value)
+    ? selected.filter((item) => item !== value)
+    : [...selected, value];
+}

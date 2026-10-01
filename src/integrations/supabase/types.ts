@@ -375,6 +375,7 @@ export type Database = {
           last_name: string;
           linkedin_url: string | null;
           location: string | null;
+          marketing_types: string[];
           max_rate: number | null;
           min_rate: number | null;
           phone: string | null;
@@ -409,6 +410,7 @@ export type Database = {
           last_name: string;
           linkedin_url?: string | null;
           location?: string | null;
+          marketing_types?: string[];
           max_rate?: number | null;
           min_rate?: number | null;
           phone?: string | null;
@@ -443,6 +445,7 @@ export type Database = {
           last_name?: string;
           linkedin_url?: string | null;
           location?: string | null;
+          marketing_types?: string[];
           max_rate?: number | null;
           min_rate?: number | null;
           phone?: string | null;

@@ -9,6 +9,8 @@ import { providedCandidateChildKeys } from "@/lib/candidate-child-updates";
 import { runWithAiUsageGuard } from "@/lib/ai-usage.server";
 import { processDocumentInIsolatedWorker } from "@/lib/document-processing.server";
 import { isCanonicalResumePathFor } from "@/lib/resume-storage-path";
+import { MARKETING_TYPES } from "@/lib/candidates-constants";
+import { normalizeUsPhone, US_PHONE_ERROR } from "@/lib/us-phone";
 import { z } from "zod";
 
 export { createDocumentUpload as createCandidateResumeUpload } from "@/lib/document-upload.functions";
@@ -65,18 +67,16 @@ const normalizedEmail = z
   .or(z.literal("").transform(() => null));
 
 const normalizedPhone = z
-  .string()
-  .trim()
-  .max(40)
-  .refine((value) => /^\+?[0-9][0-9 .()-]*[0-9]$/.test(value), "Invalid phone format")
-  .refine((value) => {
-    const digits = value.replace(/\D/g, "");
-    return digits.length >= 7 && digits.length <= 15;
-  }, "Phone number must contain 7 to 15 digits")
-  .transform((value) => `${value.startsWith("+") ? "+" : ""}${value.replace(/\D/g, "")}`)
-  .nullable()
-  .optional()
-  .or(z.literal("").transform(() => null));
+  .union([z.string().max(40), z.null(), z.undefined()])
+  .transform((value, context) => {
+    if (value == null || value.trim() === "") return null;
+    const normalized = normalizeUsPhone(value);
+    if (!normalized) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: US_PHONE_ERROR });
+      return z.NEVER;
+    }
+    return normalized;
+  });
 
 const EmploymentSchema = z
   .object({
@@ -143,7 +143,18 @@ const CandidateInputObjectSchema = z.object({
   ready_to_relocate: z.boolean().nullable().optional(),
   preferred_location: z.string().trim().max(160).nullable().optional(),
   primary_technology: z.string().trim().max(120).nullable().optional(),
-  visa_status: z.string().trim().max(40).nullable().optional(),
+  visa_status: z
+    .string()
+    .trim()
+    .max(40)
+    .refine((value) => value !== "C2C", "C2C is a marketing type, not a visa status")
+    .nullable()
+    .optional(),
+  marketing_types: z
+    .array(z.enum(MARKETING_TYPES))
+    .max(MARKETING_TYPES.length)
+    .refine((values) => new Set(values).size === values.length, "Marketing types must be unique")
+    .default([]),
   availability: z.enum(AVAILS).nullable().optional(),
   min_rate: z.number().nonnegative().nullable().optional(),
   max_rate: z.number().nonnegative().nullable().optional(),
@@ -249,8 +260,8 @@ export const listCandidates = createServerFn({ method: "POST" })
     const from = (data.page - 1) * data.page_size;
     const to = from + data.page_size - 1;
     const candidateSelect = data.skill
-      ? ("id,first_name,last_name,email,phone,location,current_employer,current_title,primary_technology,visa_status,availability,experience_years,min_rate,max_rate,rate_type,currency,status,created_at,updated_at,created_by,assigned_to,candidate_skills!inner(skill,is_primary),resumes(candidate_id)" as const)
-      : ("id,first_name,last_name,email,phone,location,current_employer,current_title,primary_technology,visa_status,availability,experience_years,min_rate,max_rate,rate_type,currency,status,created_at,updated_at,created_by,assigned_to,candidate_skills(skill,is_primary),resumes(candidate_id)" as const);
+      ? ("id,first_name,last_name,email,phone,location,current_employer,current_title,primary_technology,visa_status,marketing_types,availability,experience_years,min_rate,max_rate,rate_type,currency,status,created_at,updated_at,created_by,assigned_to,candidate_skills!inner(skill,is_primary),resumes(candidate_id)" as const)
+      : ("id,first_name,last_name,email,phone,location,current_employer,current_title,primary_technology,visa_status,marketing_types,availability,experience_years,min_rate,max_rate,rate_type,currency,status,created_at,updated_at,created_by,assigned_to,candidate_skills(skill,is_primary),resumes(candidate_id)" as const);
 
     let q = supabase
       .from("candidates")
@@ -308,7 +319,7 @@ export const getCandidate = createServerFn({ method: "POST" })
     const { data: cand, error } = await supabase
       .from("candidates")
       .select(
-        "id, first_name, last_name, email, phone, location, current_title, current_employer, required_job, ready_to_relocate, preferred_location, primary_technology, experience_years, visa_status, availability, status, summary, linkedin_url, github_url, portfolio_url, min_rate, max_rate, rate_type, currency, source, assigned_to, ats_score, ai_notes, created_at, updated_at",
+        "id, first_name, last_name, email, phone, location, current_title, current_employer, required_job, ready_to_relocate, preferred_location, primary_technology, experience_years, visa_status, marketing_types, availability, status, summary, linkedin_url, github_url, portfolio_url, min_rate, max_rate, rate_type, currency, source, assigned_to, ats_score, ai_notes, created_at, updated_at",
       )
       .eq("id", data.id)
       .maybeSingle();

@@ -9,6 +9,7 @@ import {
   Loader2,
   Mail,
   MapPin,
+  Pencil,
   Phone,
 } from "lucide-react";
 
@@ -58,6 +59,13 @@ function CandidateDetailPage() {
             [candidate.current_title, candidate.location].filter(Boolean).join(" · ") ||
             "Candidate profile"
           }
+          actions={
+            <Button asChild size="sm" className="gap-1.5">
+              <Link to="/candidates/$id/edit" params={{ id }}>
+                <Pencil className="h-3.5 w-3.5" /> Edit Candidate
+              </Link>
+            </Button>
+          }
         />
 
         <Card className="border-border bg-card">
@@ -90,6 +98,11 @@ function CandidateDetailPage() {
                 {candidate.availability && (
                   <Badge variant="secondary">{candidate.availability.replaceAll("_", " ")}</Badge>
                 )}
+                {(candidate.marketing_types ?? []).map((type) => (
+                  <Badge key={type} variant="outline">
+                    {type}
+                  </Badge>
+                ))}
               </div>
             </div>
           </CardContent>

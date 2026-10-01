@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET search_path = public, extensions;
-SELECT plan(19);
+SELECT plan(21);
 
 SELECT has_function(
   'public',
@@ -66,6 +66,8 @@ FROM public.create_candidate_graph(
     "first_name": "Atomic",
     "last_name": "Candidate",
     "email": "atomic@example.invalid",
+    "phone": "(317) 555-0188",
+    "marketing_types": ["C2C", "W2"],
     "status": "active",
     "source": "pdf",
     "tenant_id": "32000000-0000-0000-0000-000000000002",
@@ -102,6 +104,16 @@ SELECT ok(
     WHERE id = (SELECT id FROM created_candidate_ids)
   ),
   'tenant and actor are derived from the authenticated profile, not JSON input'
+);
+SELECT is(
+  (SELECT phone FROM public.candidates WHERE id = (SELECT id FROM created_candidate_ids)),
+  '+13175550188',
+  'candidate graph creation normalizes the US phone number'
+);
+SELECT is(
+  (SELECT marketing_types FROM public.candidates WHERE id = (SELECT id FROM created_candidate_ids)),
+  ARRAY['C2C', 'W2']::text[],
+  'candidate graph creation persists multiple marketing types'
 );
 SELECT is(
   (SELECT count(*) FROM public.candidate_skills WHERE candidate_id = (SELECT id FROM created_candidate_ids)),

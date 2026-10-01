@@ -57,6 +57,7 @@ import { Route as AuthenticatedSettingsEmailAccountsCallbackRouteImport } from '
 import { Route as AuthenticatedRequirementsIdEditRouteImport } from './routes/_authenticated/requirements.$id.edit'
 import { Route as AuthenticatedEmailIntelligenceRulesNewRouteImport } from './routes/_authenticated/email-intelligence.rules.new'
 import { Route as AuthenticatedEmailIntelligenceRulesIdRouteImport } from './routes/_authenticated/email-intelligence.rules.$id'
+import { Route as AuthenticatedCandidatesIdEditRouteImport } from './routes/_authenticated/candidates.$id.edit'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -322,6 +323,12 @@ const AuthenticatedEmailIntelligenceRulesIdRoute =
     path: '/email-intelligence/rules/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCandidatesIdEditRoute =
+  AuthenticatedCandidatesIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => AuthenticatedCandidatesIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -343,7 +350,7 @@ export interface FileRoutesByFullPath {
   '/tailoring': typeof AuthenticatedTailoringRoute
   '/users': typeof AuthenticatedUsersRoute
   '/bench/$id': typeof AuthenticatedBenchIdRoute
-  '/candidates/$id': typeof AuthenticatedCandidatesIdRoute
+  '/candidates/$id': typeof AuthenticatedCandidatesIdRouteWithChildren
   '/candidates/new': typeof AuthenticatedCandidatesNewRoute
   '/clients/$id': typeof AuthenticatedClientsIdRoute
   '/clients/new': typeof AuthenticatedClientsNewRoute
@@ -366,6 +373,7 @@ export interface FileRoutesByFullPath {
   '/requirements/': typeof AuthenticatedRequirementsIndexRoute
   '/submissions/': typeof AuthenticatedSubmissionsIndexRoute
   '/vendors/': typeof AuthenticatedVendorsIndexRoute
+  '/candidates/$id/edit': typeof AuthenticatedCandidatesIdEditRoute
   '/email-intelligence/rules/$id': typeof AuthenticatedEmailIntelligenceRulesIdRoute
   '/email-intelligence/rules/new': typeof AuthenticatedEmailIntelligenceRulesNewRoute
   '/requirements/$id/edit': typeof AuthenticatedRequirementsIdEditRoute
@@ -392,7 +400,7 @@ export interface FileRoutesByTo {
   '/tailoring': typeof AuthenticatedTailoringRoute
   '/users': typeof AuthenticatedUsersRoute
   '/bench/$id': typeof AuthenticatedBenchIdRoute
-  '/candidates/$id': typeof AuthenticatedCandidatesIdRoute
+  '/candidates/$id': typeof AuthenticatedCandidatesIdRouteWithChildren
   '/candidates/new': typeof AuthenticatedCandidatesNewRoute
   '/clients/$id': typeof AuthenticatedClientsIdRoute
   '/clients/new': typeof AuthenticatedClientsNewRoute
@@ -415,6 +423,7 @@ export interface FileRoutesByTo {
   '/requirements': typeof AuthenticatedRequirementsIndexRoute
   '/submissions': typeof AuthenticatedSubmissionsIndexRoute
   '/vendors': typeof AuthenticatedVendorsIndexRoute
+  '/candidates/$id/edit': typeof AuthenticatedCandidatesIdEditRoute
   '/email-intelligence/rules/$id': typeof AuthenticatedEmailIntelligenceRulesIdRoute
   '/email-intelligence/rules/new': typeof AuthenticatedEmailIntelligenceRulesNewRoute
   '/requirements/$id/edit': typeof AuthenticatedRequirementsIdEditRoute
@@ -443,7 +452,7 @@ export interface FileRoutesById {
   '/_authenticated/tailoring': typeof AuthenticatedTailoringRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/bench/$id': typeof AuthenticatedBenchIdRoute
-  '/_authenticated/candidates/$id': typeof AuthenticatedCandidatesIdRoute
+  '/_authenticated/candidates/$id': typeof AuthenticatedCandidatesIdRouteWithChildren
   '/_authenticated/candidates/new': typeof AuthenticatedCandidatesNewRoute
   '/_authenticated/clients/$id': typeof AuthenticatedClientsIdRoute
   '/_authenticated/clients/new': typeof AuthenticatedClientsNewRoute
@@ -466,6 +475,7 @@ export interface FileRoutesById {
   '/_authenticated/requirements/': typeof AuthenticatedRequirementsIndexRoute
   '/_authenticated/submissions/': typeof AuthenticatedSubmissionsIndexRoute
   '/_authenticated/vendors/': typeof AuthenticatedVendorsIndexRoute
+  '/_authenticated/candidates/$id/edit': typeof AuthenticatedCandidatesIdEditRoute
   '/_authenticated/email-intelligence/rules/$id': typeof AuthenticatedEmailIntelligenceRulesIdRoute
   '/_authenticated/email-intelligence/rules/new': typeof AuthenticatedEmailIntelligenceRulesNewRoute
   '/_authenticated/requirements/$id/edit': typeof AuthenticatedRequirementsIdEditRoute
@@ -517,6 +527,7 @@ export interface FileRouteTypes {
     | '/requirements/'
     | '/submissions/'
     | '/vendors/'
+    | '/candidates/$id/edit'
     | '/email-intelligence/rules/$id'
     | '/email-intelligence/rules/new'
     | '/requirements/$id/edit'
@@ -566,6 +577,7 @@ export interface FileRouteTypes {
     | '/requirements'
     | '/submissions'
     | '/vendors'
+    | '/candidates/$id/edit'
     | '/email-intelligence/rules/$id'
     | '/email-intelligence/rules/new'
     | '/requirements/$id/edit'
@@ -616,6 +628,7 @@ export interface FileRouteTypes {
     | '/_authenticated/requirements/'
     | '/_authenticated/submissions/'
     | '/_authenticated/vendors/'
+    | '/_authenticated/candidates/$id/edit'
     | '/_authenticated/email-intelligence/rules/$id'
     | '/_authenticated/email-intelligence/rules/new'
     | '/_authenticated/requirements/$id/edit'
@@ -967,6 +980,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedEmailIntelligenceRulesIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/candidates/$id/edit': {
+      id: '/_authenticated/candidates/$id/edit'
+      path: '/edit'
+      fullPath: '/candidates/$id/edit'
+      preLoaderRoute: typeof AuthenticatedCandidatesIdEditRouteImport
+      parentRoute: typeof AuthenticatedCandidatesIdRoute
+    }
   }
 }
 
@@ -980,6 +1000,20 @@ const AuthenticatedBenchRouteChildren: AuthenticatedBenchRouteChildren = {
 
 const AuthenticatedBenchRouteWithChildren =
   AuthenticatedBenchRoute._addFileChildren(AuthenticatedBenchRouteChildren)
+
+interface AuthenticatedCandidatesIdRouteChildren {
+  AuthenticatedCandidatesIdEditRoute: typeof AuthenticatedCandidatesIdEditRoute
+}
+
+const AuthenticatedCandidatesIdRouteChildren: AuthenticatedCandidatesIdRouteChildren =
+  {
+    AuthenticatedCandidatesIdEditRoute: AuthenticatedCandidatesIdEditRoute,
+  }
+
+const AuthenticatedCandidatesIdRouteWithChildren =
+  AuthenticatedCandidatesIdRoute._addFileChildren(
+    AuthenticatedCandidatesIdRouteChildren,
+  )
 
 interface AuthenticatedRequirementsIdRouteChildren {
   AuthenticatedRequirementsIdEditRoute: typeof AuthenticatedRequirementsIdEditRoute
@@ -1027,7 +1061,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPlatformRoute: typeof AuthenticatedPlatformRoute
   AuthenticatedTailoringRoute: typeof AuthenticatedTailoringRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
-  AuthenticatedCandidatesIdRoute: typeof AuthenticatedCandidatesIdRoute
+  AuthenticatedCandidatesIdRoute: typeof AuthenticatedCandidatesIdRouteWithChildren
   AuthenticatedCandidatesNewRoute: typeof AuthenticatedCandidatesNewRoute
   AuthenticatedClientsIdRoute: typeof AuthenticatedClientsIdRoute
   AuthenticatedClientsNewRoute: typeof AuthenticatedClientsNewRoute
@@ -1072,7 +1106,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPlatformRoute: AuthenticatedPlatformRoute,
   AuthenticatedTailoringRoute: AuthenticatedTailoringRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
-  AuthenticatedCandidatesIdRoute: AuthenticatedCandidatesIdRoute,
+  AuthenticatedCandidatesIdRoute: AuthenticatedCandidatesIdRouteWithChildren,
   AuthenticatedCandidatesNewRoute: AuthenticatedCandidatesNewRoute,
   AuthenticatedClientsIdRoute: AuthenticatedClientsIdRoute,
   AuthenticatedClientsNewRoute: AuthenticatedClientsNewRoute,
