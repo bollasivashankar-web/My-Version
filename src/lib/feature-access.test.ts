@@ -39,6 +39,15 @@ test("operational roles receive their assigned business features", () => {
   assert.equal(canAccessPath(identity("marketing_executive"), "/requirements"), false);
 });
 
+test("smart email is available only to the L4 recruiter role", () => {
+  assert.equal(canAccessPath(identity("recruiter"), "/email-intelligence"), true);
+  assert.equal(canAccessPath(identity("recruiter"), "/settings/email-accounts"), true);
+  for (const role of ["super_admin", "admin", "developer_admin"] as const) {
+    assert.equal(canAccessPath(identity(role), "/email-intelligence"), false);
+    assert.equal(canAccessPath(identity(role), "/settings/email-accounts"), false);
+  }
+});
+
 test("unprovisioned users can only reach access request and forbidden pages", () => {
   const unprovisioned = identity("");
   assert.equal(canAccessPath(unprovisioned, "/access-request"), true);

@@ -13,6 +13,7 @@ const fixturesDisabled = fileURLToPath(
 const candidateEmbeddingTask = fileURLToPath(
   new URL("./tasks/candidate-embeddings.ts", import.meta.url),
 );
+const emailSyncTask = fileURLToPath(new URL("./tasks/email-sync.ts", import.meta.url));
 
 export default defineConfig({
   nitro: {
@@ -22,10 +23,15 @@ export default defineConfig({
         handler: candidateEmbeddingTask,
         description: "Generate embeddings for committed candidate records",
       },
+      "email-sync": {
+        handler: emailSyncTask,
+        description: "Synchronize connected L4 recruiter email accounts",
+      },
     },
     scheduledTasks: {
       // Vercel Hobby permits cron jobs to run at most once per day.
       "0 0 * * *": "candidate-embeddings",
+      "30 0 * * *": "email-sync",
     },
   } as unknown as { preset?: string },
   vite: {

@@ -6,6 +6,7 @@ import {
   FileText,
   Handshake,
   KanbanSquare,
+  MailSearch,
   LayoutDashboard,
   ScrollText,
   ShieldCheck,
@@ -46,6 +47,12 @@ export const NAV_GROUPS: ReadonlyArray<{ section: string; items: readonly NavIte
         feature: "submissions",
       },
       { to: "/interviews", label: "Interviews", icon: CalendarClock, feature: "interviews" },
+      {
+        to: "/email-intelligence",
+        label: "Smart Email",
+        icon: MailSearch,
+        feature: "email_intelligence",
+      },
     ],
   },
   {

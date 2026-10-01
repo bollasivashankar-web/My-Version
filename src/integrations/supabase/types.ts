@@ -1,10 +1,30 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5";
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
   };
   public: {
     Tables: {
@@ -347,9 +367,6 @@ export type Database = {
           currency: string;
           current_employer: string | null;
           current_title: string | null;
-          required_job: string | null;
-          ready_to_relocate: boolean | null;
-          preferred_location: string | null;
           email: string | null;
           experience_years: number | null;
           first_name: string;
@@ -362,12 +379,15 @@ export type Database = {
           min_rate: number | null;
           phone: string | null;
           portfolio_url: string | null;
+          preferred_location: string | null;
           primary_technology: string | null;
           rate_type: Database["public"]["Enums"]["requirement_rate_type"] | null;
+          ready_to_relocate: boolean | null;
+          required_job: string | null;
           source: Database["public"]["Enums"]["requirement_source"];
           status: Database["public"]["Enums"]["candidate_status"];
           summary: string | null;
-          tenant_id: string | null;
+          tenant_id: string;
           updated_at: string;
           visa_status: string | null;
         };
@@ -381,9 +401,6 @@ export type Database = {
           currency?: string;
           current_employer?: string | null;
           current_title?: string | null;
-          required_job?: string | null;
-          ready_to_relocate?: boolean | null;
-          preferred_location?: string | null;
           email?: string | null;
           experience_years?: number | null;
           first_name: string;
@@ -396,12 +413,15 @@ export type Database = {
           min_rate?: number | null;
           phone?: string | null;
           portfolio_url?: string | null;
+          preferred_location?: string | null;
           primary_technology?: string | null;
           rate_type?: Database["public"]["Enums"]["requirement_rate_type"] | null;
+          ready_to_relocate?: boolean | null;
+          required_job?: string | null;
           source?: Database["public"]["Enums"]["requirement_source"];
           status?: Database["public"]["Enums"]["candidate_status"];
           summary?: string | null;
-          tenant_id?: string | null;
+          tenant_id?: string;
           updated_at?: string;
           visa_status?: string | null;
         };
@@ -415,9 +435,6 @@ export type Database = {
           currency?: string;
           current_employer?: string | null;
           current_title?: string | null;
-          required_job?: string | null;
-          ready_to_relocate?: boolean | null;
-          preferred_location?: string | null;
           email?: string | null;
           experience_years?: number | null;
           first_name?: string;
@@ -430,18 +447,101 @@ export type Database = {
           min_rate?: number | null;
           phone?: string | null;
           portfolio_url?: string | null;
+          preferred_location?: string | null;
           primary_technology?: string | null;
           rate_type?: Database["public"]["Enums"]["requirement_rate_type"] | null;
+          ready_to_relocate?: boolean | null;
+          required_job?: string | null;
           source?: Database["public"]["Enums"]["requirement_source"];
           status?: Database["public"]["Enums"]["candidate_status"];
           summary?: string | null;
-          tenant_id?: string | null;
+          tenant_id?: string;
           updated_at?: string;
           visa_status?: string | null;
         };
         Relationships: [
           {
             foreignKeyName: "candidates_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      clients: {
+        Row: {
+          address: string | null;
+          city: string | null;
+          contact_email: string | null;
+          contact_name: string | null;
+          contact_phone: string | null;
+          country: string | null;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          industry: string | null;
+          msa_signed_at: string | null;
+          name: string;
+          notes: string | null;
+          postal_code: string | null;
+          state: string | null;
+          status: Database["public"]["Enums"]["crm_status"];
+          tax_id: string | null;
+          tenant_id: string;
+          tier: Database["public"]["Enums"]["crm_tier"] | null;
+          updated_at: string;
+          website: string | null;
+        };
+        Insert: {
+          address?: string | null;
+          city?: string | null;
+          contact_email?: string | null;
+          contact_name?: string | null;
+          contact_phone?: string | null;
+          country?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          industry?: string | null;
+          msa_signed_at?: string | null;
+          name: string;
+          notes?: string | null;
+          postal_code?: string | null;
+          state?: string | null;
+          status?: Database["public"]["Enums"]["crm_status"];
+          tax_id?: string | null;
+          tenant_id?: string;
+          tier?: Database["public"]["Enums"]["crm_tier"] | null;
+          updated_at?: string;
+          website?: string | null;
+        };
+        Update: {
+          address?: string | null;
+          city?: string | null;
+          contact_email?: string | null;
+          contact_name?: string | null;
+          contact_phone?: string | null;
+          country?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          industry?: string | null;
+          msa_signed_at?: string | null;
+          name?: string;
+          notes?: string | null;
+          postal_code?: string | null;
+          state?: string | null;
+          status?: Database["public"]["Enums"]["crm_status"];
+          tax_id?: string | null;
+          tenant_id?: string;
+          tier?: Database["public"]["Enums"]["crm_tier"] | null;
+          updated_at?: string;
+          website?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clients_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
             referencedRelation: "tenants";
@@ -475,86 +575,6 @@ export type Database = {
           phone_number?: string;
         };
         Relationships: [];
-      };
-      clients: {
-        Row: {
-          address: string | null;
-          city: string | null;
-          contact_email: string | null;
-          contact_name: string | null;
-          contact_phone: string | null;
-          country: string | null;
-          created_at: string;
-          created_by: string | null;
-          id: string;
-          industry: string | null;
-          msa_signed_at: string | null;
-          name: string;
-          notes: string | null;
-          postal_code: string | null;
-          state: string | null;
-          status: Database["public"]["Enums"]["crm_status"];
-          tax_id: string | null;
-          tenant_id: string | null;
-          tier: Database["public"]["Enums"]["crm_tier"] | null;
-          updated_at: string;
-          website: string | null;
-        };
-        Insert: {
-          address?: string | null;
-          city?: string | null;
-          contact_email?: string | null;
-          contact_name?: string | null;
-          contact_phone?: string | null;
-          country?: string | null;
-          created_at?: string;
-          created_by?: string | null;
-          id?: string;
-          industry?: string | null;
-          msa_signed_at?: string | null;
-          name: string;
-          notes?: string | null;
-          postal_code?: string | null;
-          state?: string | null;
-          status?: Database["public"]["Enums"]["crm_status"];
-          tax_id?: string | null;
-          tenant_id?: string | null;
-          tier?: Database["public"]["Enums"]["crm_tier"] | null;
-          updated_at?: string;
-          website?: string | null;
-        };
-        Update: {
-          address?: string | null;
-          city?: string | null;
-          contact_email?: string | null;
-          contact_name?: string | null;
-          contact_phone?: string | null;
-          country?: string | null;
-          created_at?: string;
-          created_by?: string | null;
-          id?: string;
-          industry?: string | null;
-          msa_signed_at?: string | null;
-          name?: string;
-          notes?: string | null;
-          postal_code?: string | null;
-          state?: string | null;
-          status?: Database["public"]["Enums"]["crm_status"];
-          tax_id?: string | null;
-          tenant_id?: string | null;
-          tier?: Database["public"]["Enums"]["crm_tier"] | null;
-          updated_at?: string;
-          website?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "clients_tenant_id_fkey";
-            columns: ["tenant_id"];
-            isOneToOne: false;
-            referencedRelation: "tenants";
-            referencedColumns: ["id"];
-          },
-        ];
       };
       copilot_messages: {
         Row: {
@@ -601,6 +621,371 @@ export type Database = {
           },
         ];
       };
+      email_accounts: {
+        Row: {
+          created_at: string;
+          email_address: string;
+          encrypted_access_token: string;
+          encrypted_refresh_token: string | null;
+          id: string;
+          last_sync_at: string | null;
+          last_sync_error_code: string | null;
+          provider: string;
+          provider_account_id: string;
+          status: string;
+          sync_cursor: string | null;
+          tenant_id: string;
+          token_expires_at: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          email_address: string;
+          encrypted_access_token: string;
+          encrypted_refresh_token?: string | null;
+          id?: string;
+          last_sync_at?: string | null;
+          last_sync_error_code?: string | null;
+          provider: string;
+          provider_account_id: string;
+          status?: string;
+          sync_cursor?: string | null;
+          tenant_id: string;
+          token_expires_at: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          email_address?: string;
+          encrypted_access_token?: string;
+          encrypted_refresh_token?: string | null;
+          id?: string;
+          last_sync_at?: string | null;
+          last_sync_error_code?: string | null;
+          provider?: string;
+          provider_account_id?: string;
+          status?: string;
+          sync_cursor?: string | null;
+          tenant_id?: string;
+          token_expires_at?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "email_accounts_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      email_attachments: {
+        Row: {
+          created_at: string;
+          filename: string;
+          id: string;
+          mime_type: string;
+          provider_attachment_id: string;
+          selected_email_id: string;
+          size_bytes: number | null;
+          tenant_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          filename: string;
+          id?: string;
+          mime_type: string;
+          provider_attachment_id: string;
+          selected_email_id: string;
+          size_bytes?: number | null;
+          tenant_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          filename?: string;
+          id?: string;
+          mime_type?: string;
+          provider_attachment_id?: string;
+          selected_email_id?: string;
+          size_bytes?: number | null;
+          tenant_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "email_attachments_selected_email_id_user_id_fkey";
+            columns: ["selected_email_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "selected_emails";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "email_attachments_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      email_filter_rules: {
+        Row: {
+          ai_category: string | null;
+          ai_enabled: boolean;
+          ai_prompt: string | null;
+          allowed_attachment_types: string[];
+          body_keywords: string[];
+          created_at: string;
+          email_account_id: string;
+          enabled: boolean;
+          excluded_keywords: string[];
+          id: string;
+          match_mode: string;
+          minimum_relevance_score: number;
+          name: string;
+          require_attachment: boolean;
+          required_keywords: string[];
+          sender_domains: string[];
+          sender_emails: string[];
+          subject_exact: string | null;
+          subject_keywords: string[];
+          tenant_id: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          ai_category?: string | null;
+          ai_enabled?: boolean;
+          ai_prompt?: string | null;
+          allowed_attachment_types?: string[];
+          body_keywords?: string[];
+          created_at?: string;
+          email_account_id: string;
+          enabled?: boolean;
+          excluded_keywords?: string[];
+          id?: string;
+          match_mode?: string;
+          minimum_relevance_score?: number;
+          name: string;
+          require_attachment?: boolean;
+          required_keywords?: string[];
+          sender_domains?: string[];
+          sender_emails?: string[];
+          subject_exact?: string | null;
+          subject_keywords?: string[];
+          tenant_id: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          ai_category?: string | null;
+          ai_enabled?: boolean;
+          ai_prompt?: string | null;
+          allowed_attachment_types?: string[];
+          body_keywords?: string[];
+          created_at?: string;
+          email_account_id?: string;
+          enabled?: boolean;
+          excluded_keywords?: string[];
+          id?: string;
+          match_mode?: string;
+          minimum_relevance_score?: number;
+          name?: string;
+          require_attachment?: boolean;
+          required_keywords?: string[];
+          sender_domains?: string[];
+          sender_emails?: string[];
+          subject_exact?: string | null;
+          subject_keywords?: string[];
+          tenant_id?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "email_filter_rules_email_account_id_user_id_fkey";
+            columns: ["email_account_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "email_accounts";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "email_filter_rules_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      email_oauth_states: {
+        Row: {
+          created_at: string;
+          encrypted_pkce_verifier: string;
+          expires_at: string;
+          id: string;
+          provider: string;
+          state_hash: string;
+          tenant_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          encrypted_pkce_verifier: string;
+          expires_at: string;
+          id?: string;
+          provider: string;
+          state_hash: string;
+          tenant_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          encrypted_pkce_verifier?: string;
+          expires_at?: string;
+          id?: string;
+          provider?: string;
+          state_hash?: string;
+          tenant_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "email_oauth_states_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      email_processing_logs: {
+        Row: {
+          created_at: string;
+          email_account_id: string | null;
+          error_code: string | null;
+          id: number;
+          matched_rule_id: string | null;
+          processing_duration_ms: number;
+          provider: string;
+          provider_message_fingerprint: string | null;
+          status: string;
+          tenant_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          email_account_id?: string | null;
+          error_code?: string | null;
+          id?: never;
+          matched_rule_id?: string | null;
+          processing_duration_ms?: number;
+          provider: string;
+          provider_message_fingerprint?: string | null;
+          status: string;
+          tenant_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          email_account_id?: string | null;
+          error_code?: string | null;
+          id?: never;
+          matched_rule_id?: string | null;
+          processing_duration_ms?: number;
+          provider?: string;
+          provider_message_fingerprint?: string | null;
+          status?: string;
+          tenant_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "email_processing_logs_email_account_id_user_id_fkey";
+            columns: ["email_account_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "email_accounts";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "email_processing_logs_matched_rule_id_user_id_fkey";
+            columns: ["matched_rule_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "email_filter_rules";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "email_processing_logs_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      email_sync_jobs: {
+        Row: {
+          attempts: number;
+          completed_at: string | null;
+          created_at: string;
+          email_account_id: string;
+          error_code: string | null;
+          id: string;
+          scheduled_at: string;
+          started_at: string | null;
+          status: string;
+          tenant_id: string;
+          user_id: string;
+        };
+        Insert: {
+          attempts?: number;
+          completed_at?: string | null;
+          created_at?: string;
+          email_account_id: string;
+          error_code?: string | null;
+          id?: string;
+          scheduled_at?: string;
+          started_at?: string | null;
+          status?: string;
+          tenant_id: string;
+          user_id: string;
+        };
+        Update: {
+          attempts?: number;
+          completed_at?: string | null;
+          created_at?: string;
+          email_account_id?: string;
+          error_code?: string | null;
+          id?: string;
+          scheduled_at?: string;
+          started_at?: string | null;
+          status?: string;
+          tenant_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "email_sync_jobs_email_account_id_user_id_fkey";
+            columns: ["email_account_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "email_accounts";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "email_sync_jobs_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       interviews: {
         Row: {
           ai_summary: string | null;
@@ -619,7 +1004,7 @@ export type Database = {
           scheduled_at: string | null;
           score: number | null;
           submission_id: string;
-          tenant_id: string | null;
+          tenant_id: string;
           timezone: string | null;
           updated_at: string;
         };
@@ -640,7 +1025,7 @@ export type Database = {
           scheduled_at?: string | null;
           score?: number | null;
           submission_id: string;
-          tenant_id?: string | null;
+          tenant_id?: string;
           timezone?: string | null;
           updated_at?: string;
         };
@@ -661,7 +1046,7 @@ export type Database = {
           scheduled_at?: string | null;
           score?: number | null;
           submission_id?: string;
-          tenant_id?: string | null;
+          tenant_id?: string;
           timezone?: string | null;
           updated_at?: string;
         };
@@ -700,7 +1085,7 @@ export type Database = {
           start_date: string | null;
           status: Database["public"]["Enums"]["placement_status"];
           submission_id: string;
-          tenant_id: string | null;
+          tenant_id: string;
           updated_at: string;
           vendor_id: string | null;
         };
@@ -721,7 +1106,7 @@ export type Database = {
           start_date?: string | null;
           status?: Database["public"]["Enums"]["placement_status"];
           submission_id: string;
-          tenant_id?: string | null;
+          tenant_id?: string;
           updated_at?: string;
           vendor_id?: string | null;
         };
@@ -742,7 +1127,7 @@ export type Database = {
           start_date?: string | null;
           status?: Database["public"]["Enums"]["placement_status"];
           submission_id?: string;
-          tenant_id?: string | null;
+          tenant_id?: string;
           updated_at?: string;
           vendor_id?: string | null;
         };
@@ -993,7 +1378,7 @@ export type Database = {
           recruiter_notes: string | null;
           source: Database["public"]["Enums"]["requirement_source"];
           status: Database["public"]["Enums"]["requirement_status"];
-          tenant_id: string | null;
+          tenant_id: string;
           title: string;
           updated_at: string;
           vendor_id: string | null;
@@ -1022,7 +1407,7 @@ export type Database = {
           recruiter_notes?: string | null;
           source?: Database["public"]["Enums"]["requirement_source"];
           status?: Database["public"]["Enums"]["requirement_status"];
-          tenant_id?: string | null;
+          tenant_id?: string;
           title: string;
           updated_at?: string;
           vendor_id?: string | null;
@@ -1051,7 +1436,7 @@ export type Database = {
           recruiter_notes?: string | null;
           source?: Database["public"]["Enums"]["requirement_source"];
           status?: Database["public"]["Enums"]["requirement_status"];
-          tenant_id?: string | null;
+          tenant_id?: string;
           title?: string;
           updated_at?: string;
           vendor_id?: string | null;
@@ -1200,7 +1585,7 @@ export type Database = {
           mime_type?: string | null;
           size_bytes?: number | null;
           source?: Database["public"]["Enums"]["requirement_source"];
-          tenant_id?: string;
+          tenant_id: string;
           uploaded_by?: string | null;
           verification_status?: string;
           verified_at?: string | null;
@@ -1231,6 +1616,104 @@ export type Database = {
             columns: ["candidate_id"];
             isOneToOne: false;
             referencedRelation: "candidates";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "resumes_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      selected_emails: {
+        Row: {
+          ai_category: string | null;
+          ai_confidence: number | null;
+          created_at: string;
+          email_account_id: string;
+          has_attachments: boolean;
+          id: string;
+          match_checks: Json;
+          match_reasons: string[];
+          matched_rule_id: string | null;
+          preview: string;
+          provider_message_id: string;
+          provider_thread_id: string | null;
+          received_at: string;
+          recipient_emails: string[];
+          relevance_score: number;
+          sender_email: string;
+          sender_name: string | null;
+          subject: string;
+          tenant_id: string;
+          user_id: string;
+        };
+        Insert: {
+          ai_category?: string | null;
+          ai_confidence?: number | null;
+          created_at?: string;
+          email_account_id: string;
+          has_attachments?: boolean;
+          id?: string;
+          match_checks?: Json;
+          match_reasons?: string[];
+          matched_rule_id?: string | null;
+          preview?: string;
+          provider_message_id: string;
+          provider_thread_id?: string | null;
+          received_at: string;
+          recipient_emails?: string[];
+          relevance_score: number;
+          sender_email: string;
+          sender_name?: string | null;
+          subject?: string;
+          tenant_id: string;
+          user_id: string;
+        };
+        Update: {
+          ai_category?: string | null;
+          ai_confidence?: number | null;
+          created_at?: string;
+          email_account_id?: string;
+          has_attachments?: boolean;
+          id?: string;
+          match_checks?: Json;
+          match_reasons?: string[];
+          matched_rule_id?: string | null;
+          preview?: string;
+          provider_message_id?: string;
+          provider_thread_id?: string | null;
+          received_at?: string;
+          recipient_emails?: string[];
+          relevance_score?: number;
+          sender_email?: string;
+          sender_name?: string | null;
+          subject?: string;
+          tenant_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "selected_emails_email_account_id_user_id_fkey";
+            columns: ["email_account_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "email_accounts";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "selected_emails_matched_rule_id_user_id_fkey";
+            columns: ["matched_rule_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "email_filter_rules";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "selected_emails_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
             referencedColumns: ["id"];
           },
         ];
@@ -1307,7 +1790,7 @@ export type Database = {
           submitted_at: string | null;
           submitted_by: string | null;
           submitted_rate: number | null;
-          tenant_id: string | null;
+          tenant_id: string;
           updated_at: string;
           vendor_id: string | null;
         };
@@ -1335,7 +1818,7 @@ export type Database = {
           submitted_at?: string | null;
           submitted_by?: string | null;
           submitted_rate?: number | null;
-          tenant_id?: string | null;
+          tenant_id?: string;
           updated_at?: string;
           vendor_id?: string | null;
         };
@@ -1363,7 +1846,7 @@ export type Database = {
           submitted_at?: string | null;
           submitted_by?: string | null;
           submitted_rate?: number | null;
-          tenant_id?: string | null;
+          tenant_id?: string;
           updated_at?: string;
           vendor_id?: string | null;
         };
@@ -1526,7 +2009,7 @@ export type Database = {
           state: string | null;
           status: Database["public"]["Enums"]["crm_status"];
           tax_id: string | null;
-          tenant_id: string | null;
+          tenant_id: string;
           tier: Database["public"]["Enums"]["crm_tier"] | null;
           updated_at: string;
           website: string | null;
@@ -1551,7 +2034,7 @@ export type Database = {
           state?: string | null;
           status?: Database["public"]["Enums"]["crm_status"];
           tax_id?: string | null;
-          tenant_id?: string | null;
+          tenant_id?: string;
           tier?: Database["public"]["Enums"]["crm_tier"] | null;
           updated_at?: string;
           website?: string | null;
@@ -1576,7 +2059,7 @@ export type Database = {
           state?: string | null;
           status?: Database["public"]["Enums"]["crm_status"];
           tax_id?: string | null;
-          tenant_id?: string | null;
+          tenant_id?: string;
           tier?: Database["public"]["Enums"]["crm_tier"] | null;
           updated_at?: string;
           website?: string | null;
@@ -1643,6 +2126,16 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      authorize_resume_upload: {
+        Args: { _upload_id: string };
+        Returns: {
+          file_name: string;
+          mime_type: string;
+          size_bytes: number;
+          staging_path: string;
+          upload_id: string;
+        }[];
+      };
       claim_candidate_embedding_jobs: {
         Args: { _limit?: number };
         Returns: {
@@ -1655,16 +2148,6 @@ export type Database = {
         Args: { _job_id: string };
         Returns: undefined;
       };
-      authorize_resume_upload: {
-        Args: { _upload_id: string };
-        Returns: {
-          file_name: string;
-          mime_type: string;
-          size_bytes: number;
-          staging_path: string;
-          upload_id: string;
-        }[];
-      };
       create_candidate_graph: {
         Args: {
           _candidate: Json;
@@ -1672,7 +2155,7 @@ export type Database = {
           _education?: Json;
           _employment?: Json;
           _projects?: Json;
-          _resume?: Json | null;
+          _resume?: Json;
           _skills?: Json;
         };
         Returns: {
@@ -1685,7 +2168,7 @@ export type Database = {
           _certifications?: Json;
           _education?: Json;
           _employment?: Json;
-          _extracted_text?: string | null;
+          _extracted_text?: string;
           _projects?: Json;
           _resume_upload_id: string;
           _skills?: Json;
@@ -1695,13 +2178,19 @@ export type Database = {
           resume_path: string;
         }[];
       };
-      dashboard_overview: { Args: never; Returns: Json };
-      platform_console_overview: { Args: never; Returns: Json };
-      reserve_ai_usage: { Args: { _operation: string }; Returns: Json };
       current_tenant_id: { Args: never; Returns: string };
+      dashboard_overview: { Args: never; Returns: Json };
       fail_candidate_embedding_job: {
         Args: { _error: string; _job_id: string };
         Returns: undefined;
+      };
+      get_role_level: { Args: { _user_id: string }; Returns: string };
+      has_any_role: {
+        Args: {
+          _roles: Database["public"]["Enums"]["app_role"][];
+          _user_id: string;
+        };
+        Returns: boolean;
       };
       has_role: {
         Args: {
@@ -1711,13 +2200,13 @@ export type Database = {
         Returns: boolean;
       };
       is_admin: { Args: { _user_id: string }; Returns: boolean };
+      is_company_admin: { Args: { _user_id: string }; Returns: boolean };
+      is_developer_admin: { Args: { _user_id: string }; Returns: boolean };
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean };
+      is_platform_owner: { Args: { _user_id: string }; Returns: boolean };
+      is_recruiter: { Args: { _user_id: string }; Returns: boolean };
       issue_resume_upload: {
-        Args: {
-          _file_name: string;
-          _mime_type: string;
-          _size_bytes: number;
-        };
+        Args: { _file_name: string; _mime_type: string; _size_bytes: number };
         Returns: {
           file_name: string;
           mime_type: string;
@@ -1739,6 +2228,8 @@ export type Database = {
           similarity: number;
         }[];
       };
+      platform_console_overview: { Args: never; Returns: Json };
+      reserve_ai_usage: { Args: { _operation: string }; Returns: Json };
       search_candidates_semantic: {
         Args: { _limit?: number; _query_embedding: string };
         Returns: {
@@ -1761,11 +2252,11 @@ export type Database = {
       app_role:
         | "super_admin"
         | "admin"
-        | "developer_admin"
         | "recruiter"
         | "account_manager"
         | "delivery_manager"
-        | "marketing_executive";
+        | "marketing_executive"
+        | "developer_admin";
       availability_status: "immediate" | "two_weeks" | "one_month" | "negotiable" | "unavailable";
       candidate_status: "active" | "submitted" | "placed" | "on_hold" | "inactive";
       crm_status: "prospect" | "active" | "inactive";
@@ -1924,17 +2415,20 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       access_request_status: ["pending", "approved", "denied"],
       app_role: [
         "super_admin",
         "admin",
-        "developer_admin",
         "recruiter",
         "account_manager",
         "delivery_manager",
         "marketing_executive",
+        "developer_admin",
       ],
       availability_status: ["immediate", "two_weeks", "one_month", "negotiable", "unavailable"],
       candidate_status: ["active", "submitted", "placed", "on_hold", "inactive"],

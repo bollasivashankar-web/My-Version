@@ -370,3 +370,4 @@ export const requirePlacementsAccess = requireFeatureAccess("placements");
 export const requireRecruitersAccess = requireFeatureAccess("recruiters");
 export const requireUsersAccess = requireFeatureAccess("users");
 export const requireDeveloperAccess = requireFeatureAccess("developer");
+export const requireEmailIntelligenceAccess = requireFeatureAccess("email_intelligence");

@@ -119,7 +119,7 @@ SELECT is(
     JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE p.prosecdef
       AND n.nspname = 'private'
-      AND p.proname IN ('current_tenant_id', 'has_role', 'is_admin', 'is_platform_admin')
+      AND p.proname IN ('current_tenant_id', 'has_role', 'is_admin', 'is_l4_recruiter', 'is_platform_admin')
       AND position('auth.uid()' IN pg_get_functiondef(p.oid)) = 0
   ),
   0::bigint,
@@ -156,6 +156,7 @@ SELECT is(
         'issue_resume_upload',
         'is_active_user',
         'is_admin',
+        'is_l4_recruiter',
         'is_platform_admin',
         'is_platform_owner',
         'set_user_role'

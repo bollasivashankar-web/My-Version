@@ -546,7 +546,7 @@ async function createCandidateGraphFromResumeUpload(
       _education: education as unknown as Json,
       _projects: projects as unknown as Json,
       _certifications: certifications as unknown as Json,
-      _extracted_text: extractedText,
+      _extracted_text: extractedText ?? undefined,
     })
     .maybeSingle();
 

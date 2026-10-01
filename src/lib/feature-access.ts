@@ -16,6 +16,7 @@ export const FEATURES = [
   "vendors",
   "placements",
   "recruiters",
+  "email_intelligence",
 ] as const;
 
 export type Feature = (typeof FEATURES)[number];
@@ -57,6 +58,7 @@ const FEATURE_ROLES: Record<Feature, readonly AppRole[]> = {
   vendors: ["super_admin", "admin", "recruiter", "account_manager", "delivery_manager"],
   placements: ["super_admin", "admin", "account_manager", "delivery_manager"],
   recruiters: ["super_admin", "admin", "delivery_manager"],
+  email_intelligence: ["recruiter"],
 };
 
 const PLATFORM_FEATURES: Record<PlatformRole, readonly Feature[]> = {
@@ -66,6 +68,8 @@ const PLATFORM_FEATURES: Record<PlatformRole, readonly Feature[]> = {
 };
 
 const PATH_FEATURES: ReadonlyArray<readonly [prefix: string, feature: Feature]> = [
+  ["/settings/email-accounts", "email_intelligence"],
+  ["/email-intelligence", "email_intelligence"],
   ["/tenants", "platform"],
   ["/platform", "platform"],
   ["/architecture", "developer"],
