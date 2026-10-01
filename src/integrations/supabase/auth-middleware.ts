@@ -245,14 +245,10 @@ async function authenticateRequest(request: Request): Promise<SupabaseAuthContex
     throw new UnauthorizedError("Invalid authentication identity.");
   }
 
-  if (
-    !isAllowedWorkEmail(user.email, {
-      allowedEmails: parseEmailPolicyList(process.env.AUTH_EMAIL_ALLOWLIST),
-      allowedDomains: parseEmailPolicyList(process.env.AUTH_ALLOWED_WORK_EMAIL_DOMAINS),
-    })
-  ) {
-    throw new ForbiddenError("Use an authorized work email account to access Staffinix.");
-  }
+  const hasAllowedWorkEmail = isAllowedWorkEmail(user.email, {
+    allowedEmails: parseEmailPolicyList(process.env.AUTH_EMAIL_ALLOWLIST),
+    allowedDomains: parseEmailPolicyList(process.env.AUTH_ALLOWED_WORK_EMAIL_DOMAINS),
+  });
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
@@ -262,6 +258,22 @@ async function authenticateRequest(request: Request): Promise<SupabaseAuthContex
 
   if (profileError || profile?.is_active !== true) {
     throw new ForbiddenError("This account is inactive or is not authorized for the application.");
+  }
+
+  // Existing members can be provisioned with an exact role assignment even when
+  // their mailbox uses a consumer domain. This keeps personal-email signups
+  // blocked while allowing explicitly provisioned member accounts to
+  // authenticate without relying on deployment-specific allowlist formatting.
+  if (!hasAllowedWorkEmail) {
+    const [{ data: assignedRole, error: roleError }, { data: platformRole, error: platformError }] =
+      await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", userId).limit(1).maybeSingle(),
+        supabase.from("platform_admins").select("role").eq("user_id", userId).maybeSingle(),
+      ]);
+
+    if (roleError || platformError || (!assignedRole && !platformRole)) {
+      throw new ForbiddenError("Use an authorized work email account to access Staffinix.");
+    }
   }
 
   setAuthenticatedRequestContext(request, userId, profile.tenant_id);
