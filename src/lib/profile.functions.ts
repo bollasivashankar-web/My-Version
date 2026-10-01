@@ -39,7 +39,7 @@ function getRoleTitle(roles: string[], platformRole: string | null): string {
 }
 
 export const getMyProfile = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([serverFunctionAuth, requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId, claims } = context;
     const { data: profile, error } = await supabase
